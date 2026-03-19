@@ -1,7 +1,7 @@
 const std = @import("std");
-const cli = @import("zig-cli");
-const config = @import("zig-config");
-const errors = @import("zig-error-handling");
+const cli = @import("zig_cli");
+const config = @import("zig_config");
+const errors = @import("zig_error_handling");
 const starter = @import("starter");
 
 const AppConfig = struct {
@@ -133,7 +133,7 @@ fn configCommand(ctx: *cli.Context) !void {
 }
 
 test "main configuration" {
-    const testing = @import("zig-test-framework");
+    const testing = @import("zig_test_framework");
     const app_config = AppConfig{};
 
     try testing.expect(app_config.max_retries == 3);

@@ -1,6 +1,6 @@
 const std = @import("std");
-const config = @import("zig-config");
-const errors = @import("zig-error-handling");
+const config = @import("zig_config");
+const errors = @import("zig_error_handling");
 
 /// Core library functionality
 pub const StarterLib = struct {
@@ -57,7 +57,7 @@ pub const ProcessError = error{
 };
 
 test "StarterLib initialization" {
-    const testing = @import("zig-test-framework");
+    const testing = @import("zig_test_framework");
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -70,7 +70,7 @@ test "StarterLib initialization" {
 }
 
 test "processData with valid input" {
-    const testing = @import("zig-test-framework");
+    const testing = @import("zig_test_framework");
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -89,7 +89,7 @@ test "processData with valid input" {
 }
 
 test "processData with empty input" {
-    const testing = @import("zig-test-framework");
+    const testing = @import("zig_test_framework");
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -104,7 +104,7 @@ test "processData with empty input" {
 }
 
 test "validateInput" {
-    const testing = @import("zig-test-framework");
+    const testing = @import("zig_test_framework");
 
     try StarterLib.validateInput("valid");
 
