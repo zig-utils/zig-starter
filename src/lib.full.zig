@@ -58,7 +58,7 @@ pub const ProcessError = error{
 
 test "StarterLib initialization" {
     const testing = @import("zig_test_framework");
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -71,7 +71,7 @@ test "StarterLib initialization" {
 
 test "processData with valid input" {
     const testing = @import("zig_test_framework");
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -90,7 +90,7 @@ test "processData with valid input" {
 
 test "processData with empty input" {
     const testing = @import("zig_test_framework");
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 

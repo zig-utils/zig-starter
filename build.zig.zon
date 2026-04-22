@@ -1,7 +1,7 @@
 .{
     .name = .zig_starter,
     .version = "0.1.1",
-    .fingerprint = 0xf5211f8f19bd114e, // Changing this has security and trust implications.
+    .fingerprint = 0x33d265d3b098d49d, // Changing this has security and trust implications.
     .minimum_zig_version = "0.15.1",
 
     .dependencies = .{},
