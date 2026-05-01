@@ -5,7 +5,9 @@ Fast lookup guide for the four key libraries in zig-starter.
 ## Library Overview
 
 ### zig-test-framework
-**Testing & Quality Assurance**
+
+#### Testing & Quality Assurance
+
 ```zig
 // Basic test
 try ztf.describe(allocator, "Suite", struct {
@@ -21,6 +23,7 @@ ztf.cleanupRegistry();
 ```
 
 **Key APIs:**
+
 - `describe()`, `it()` - Test organization
 - `expect().toBe()`, `expect().toContain()` - Assertions
 - `createMock()`, `createSpy()` - Mocking
@@ -28,6 +31,7 @@ ztf.cleanupRegistry();
 - `itSkip()`, `itOnly()` - Test control
 
 **Installation:**
+
 ```zig
 // build.zig
 const zig_test = b.dependency("zig-test-framework", .{...});
@@ -37,7 +41,9 @@ exe.root_module.addImport("zig-test-framework", zig_test.module("zig-test-framew
 ---
 
 ### zig-cli
-**CLI Framework & Interactive Prompts**
+
+#### CLI Framework & Interactive Prompts
+
 ```zig
 // Type-safe CLI
 const Options = struct {
@@ -55,6 +61,7 @@ _ = cmd.setAction(action);
 ```
 
 **Interactive Prompts:**
+
 ```zig
 // Text input
 var text = prompt.TextPrompt.init(allocator, "Your name?");
@@ -79,6 +86,7 @@ try progress.finish();
 ```
 
 **Configuration Loading:**
+
 ```zig
 const Config = struct {
     database: struct { host: []const u8, port: u16 },
@@ -89,6 +97,7 @@ var config = try cli.config.loadTyped(Config, allocator, "config.toml");
 ```
 
 **Installation:**
+
 ```zig
 // build.zig
 const zig_cli = b.dependency("zig-cli", .{...});
@@ -98,7 +107,9 @@ exe.root_module.addImport("zig-cli", zig_cli.module("zig-cli"));
 ---
 
 ### zig-config
-**Configuration Management**
+
+#### Configuration Management
+
 ```zig
 // Define config struct
 const AppConfig = struct {
@@ -124,12 +135,14 @@ const db_host = config.value.database.host;
 ```
 
 **Config Source Priority:**
+
 1. Environment variables: `MYAPP_PORT=8080`
 2. Local project: `./myapp.json`, `./config/myapp.json`
 3. Home directory: `~/.config/myapp.json`
 4. Code defaults: struct field initializers
 
 **Installation:**
+
 ```zig
 // build.zig
 const zig_config = b.dependency("zig-config", .{...});
@@ -139,7 +152,9 @@ exe.root_module.addImport("zig-config", zig_config.module("zig-config"));
 ---
 
 ### zig-error-handling (Result type)
-**Functional Error Handling**
+
+#### Functional Error Handling
+
 ```zig
 // Define result-returning function
 fn divide(a: i32, b: i32) Result(i32, []const u8) {
@@ -161,6 +176,7 @@ const result = parseNumber("42").andThen(i32, validate);
 ```
 
 **Common Operations:**
+
 ```zig
 result.isOk()                    // bool
 result.isErr()                   // bool
@@ -175,11 +191,13 @@ result.match(U, {.ok, .err})     // U (pattern matching)
 ```
 
 **Installation (simple copy):**
+
 ```bash
 cp ~/Code/zig-error-handling/src/result.zig ./src/result.zig
 ```
 
 Or as dependency:
+
 ```zig
 // build.zig
 const result = b.dependency("result", .{...});
@@ -191,6 +209,7 @@ exe.root_module.addImport("result", result.module("result"));
 ## Quick Recipes
 
 ### Running Tests
+
 ```bash
 # Auto-discover tests
 zig-test --test-dir tests
@@ -206,6 +225,7 @@ zig-test --test-dir tests --watch
 ```
 
 ### CLI with All Features
+
 ```zig
 const std = @import("std");
 const cli = @import("zig-cli");
@@ -216,19 +236,20 @@ const Options = struct {
     interactive: bool = false,
 };
 
-fn action(ctx: *cli.Context(Options)) !void {
+fn action(ctx: _cli.Context(Options)) !void {
     var name = ctx.get(.name);
-    
+
     if (ctx.get(.interactive)) {
         var input = prompt.TextPrompt.init(allocator, "Custom name?");
         name = try input.prompt();
     }
-    
+
     std.debug.print("Hello, {s}!\n", .{name});
 }
 ```
 
 ### Configuration + Environment Variables
+
 ```bash
 # Via config file
 cat > myapp.json << 'JSON'
@@ -249,6 +270,7 @@ var config = try zig_config.loadConfig(AppConfig, allocator, .{
 ```
 
 ### Error Handling Pattern
+
 ```zig
 const AppError = union(enum) {
     NotFound: []const u8,
@@ -259,7 +281,7 @@ const AppError = union(enum) {
 fn loadUser(id: u32) Result(User, AppError) {
     // Return errors explicitly
     if (id == 0) return Result(User, AppError).err(.{ .InvalidInput = "ID cannot be 0" });
-    
+
     // Chain operations
     return fetchFromDB(id)
         .mapErr(AppError, |db_err| AppError{ .DatabaseError = db_err })
@@ -272,29 +294,31 @@ const user = result.unwrapOr(User{ .id = 0, .name = "Guest" });
 ```
 
 ### Multi-Command CLI
+
 ```zig
 const ServerOpts = struct { host: []const u8 = "localhost", port: u16 = 8080 };
 const ClientOpts = struct { target: []const u8 };
 
-fn serverCmd(ctx: *cli.Context(ServerOpts)) !void { ... }
+fn serverCmd(ctx: _cli.Context(ServerOpts)) !void { ... }
 fn clientCmd(ctx: *cli.Context(ClientOpts)) !void { ... }
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-    
+
     var server = try cli.command(ServerOpts).init(allocator, "server", "Start server");
     _ = server.setAction(serverCmd);
-    
+
     var client = try cli.command(ClientOpts).init(allocator, "client", "Connect to server");
     _ = client.setAction(clientCmd);
-    
+
     // Register subcommands and parse...
 }
 ```
 
 ### Testing with Mocks
+
 ```zig
 // Mock a function
 var mock_db = ztf.createMock(allocator, User);
@@ -316,6 +340,7 @@ try mock_db.toHaveBeenCalledTimes(1);
 ## Common Patterns
 
 ### Centralized Configuration
+
 ```zig
 // config.zig
 pub const Config = struct {
@@ -330,6 +355,7 @@ var config = try zig_config.loadConfig(Config, allocator, .{ .name = "app" });
 ```
 
 ### Result-Based CLI Actions
+
 ```zig
 const CliResult = Result(u8, CliError);  // u8 = exit code
 
@@ -348,6 +374,7 @@ pub fn main() !void {
 ```
 
 ### Test Fixtures
+
 ```zig
 // tests/fixtures.zig
 pub const sample_config = @embedFile("fixtures/config.json");
@@ -446,4 +473,3 @@ project/
 All four work together seamlessly with **zero external dependencies**.
 
 Perfect for production Zig applications!
-

@@ -34,7 +34,7 @@ cd my-new-project
 # Using Pantry package manager
 pantry install
 
-# This will install:
+# This will install
 # - zig-cli
 # - zig-config
 # - zig-error-handling
@@ -223,20 +223,23 @@ test "error handling" {
 ### Adding New Features
 
 1. **Create feature branch**
+
    ```bash
    git checkout -b feature/my-feature
    ```
 
 2. **Implement and test**
+
    ```bash
-   # Edit source files
+# Edit source files
    vim src/lib.zig
 
-   # Run tests continuously
+# Run tests continuously
    zig build test
    ```
 
 3. **Commit changes**
+
    ```bash
    git add .
    git commit -m "feat: add new feature"
@@ -256,7 +259,7 @@ pantry run bump:minor
 # Bump major version (0.1.0 → 1.0.0)
 pantry run bump:major
 
-# These commands will:
+# These commands will
 # 1. Update version in build.zig.zon
 # 2. Generate CHANGELOG.md entry
 # 3. Create git commit
@@ -327,6 +330,7 @@ zig build test -- --coverage
 ### 1. Update Project Name
 
 Edit `build.zig.zon`:
+
 ```zig
 .{
     .name = "my-project",
@@ -336,6 +340,7 @@ Edit `build.zig.zon`:
 ```
 
 Edit `package.jsonc`:
+
 ```jsonc
 {
   "name": "my-project",
@@ -346,6 +351,7 @@ Edit `package.jsonc`:
 ### 2. Add Dependencies
 
 Edit `package.jsonc`:
+
 ```jsonc
 {
   "dependencies": {
@@ -355,11 +361,13 @@ Edit `package.jsonc`:
 ```
 
 Then run:
+
 ```bash
 pantry install
 ```
 
 Update `build.zig` to add the module:
+
 ```zig
 const my_dep_mod = b.addModule("my-dep", .{
     .root_source_file = b.path("../my-new-dep/src/root.zig"),
@@ -373,6 +381,7 @@ lib_mod.addImport("my-dep", my_dep_mod);
 ### 3. Add CLI Commands
 
 Edit `src/main.zig`:
+
 ```zig
 var new_cmd = try app.addCommand("mycommand", .{
     .description = "My new command",
@@ -444,6 +453,7 @@ pantry list
 ### Module Not Found
 
 Ensure `build.zig` has the correct relative paths to dependencies:
+
 ```zig
 .root_source_file = b.path("../zig-cli/src/root.zig"),
 ```

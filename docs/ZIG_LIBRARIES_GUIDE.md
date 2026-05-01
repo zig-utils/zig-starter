@@ -16,6 +16,7 @@ A comprehensive guide to four essential Zig libraries and their integration into
 ## 1. Zig Test Framework
 
 ### Overview
+
 A comprehensive, Jest-inspired testing framework providing test discovery, rich assertions, async support, and multiple reporters. Ideal for production-grade test suites.
 
 **GitHub**: zig-utils/zig-test-framework
@@ -23,12 +24,14 @@ A comprehensive, Jest-inspired testing framework providing test discovery, rich 
 ### Functionality
 
 #### Core Testing
+
 - **Test Discovery**: Automatic `*.test.zig` file detection
 - **Test Organization**: `describe()` and `it()` style test suites
 - **Test Hooks**: `beforeEach`, `afterEach`, `beforeAll`, `afterAll`
 - **Test Control**: Skip tests with `.skip()` or focus with `.only()`
 
 #### Assertions & Matchers
+
 - **Basic Assertions**: `toBe()`, `toEqual()`, `toBeTruthy()`, `toBeFalsy()`
 - **Comparisons**: `toBeGreaterThan()`, `toBeLessThan()`, `toBeGreaterThanOrEqual()`, `toBeLessThanOrEqual()`
 - **String Matchers**: `toContain()`, `toStartWith()`, `toEndWith()`, `toHaveLength()`
@@ -39,6 +42,7 @@ A comprehensive, Jest-inspired testing framework providing test discovery, rich 
 - **Struct Matching**: Field-level assertions with `expectStruct()`
 
 #### Advanced Features
+
 - **Mocking & Spying**: `createMock()` and `createSpy()` with call tracking
 - **Async Tests**: Full async/await support with concurrent & sequential execution
 - **Timeout Handling**: Per-test, per-suite, and global timeout configurations
@@ -53,6 +57,7 @@ A comprehensive, Jest-inspired testing framework providing test discovery, rich 
 ### API Patterns
 
 #### Basic Test Suite
+
 ```zig
 const std = @import("std");
 const ztf = @import("zig-test-framework");
@@ -81,6 +86,7 @@ ztf.cleanupRegistry();  // IMPORTANT!
 ```
 
 #### Test Discovery Mode (Recommended)
+
 ```bash
 # Automatically discover and run *.test.zig files
 zig-test --test-dir tests
@@ -88,38 +94,42 @@ zig-test --test-dir tests --coverage --reporter json
 ```
 
 #### Async Tests
+
 ```zig
 try ztf.itAsync(allocator, "async operation", struct {
     fn run(alloc: std.mem.Allocator) !void {
-        std.Thread.sleep(100 * std.time.ns_per_ms);
+        std.Thread.sleep(100 * std.time.ns*per*ms);
         // Async test implementation
     }
 }.run);
 ```
 
 #### Mocking
-```zig
-var mock_fn = ztf.createMock(alloc, i32);
-defer mock_fn.deinit();
 
-try mock_fn.recordCall("arg1");
-try mock_fn.toHaveBeenCalledWith("arg1");
-try mock_fn.mockReturnValue(42);
+```zig
+var mock*fn = ztf.createMock(alloc, i32);
+defer mock*fn.deinit();
+
+try mock*fn.recordCall("arg1");
+try mock*fn.toHaveBeenCalledWith("arg1");
+try mock*fn.mockReturnValue(42);
 ```
 
 ### Installation & Integration
 
 **As a dependency in `build.zig`:**
+
 ```zig
-const zig_test = b.dependency("zig-test-framework", .{
+const zig*test = b.dependency("zig-test-framework", .{
     .target = target,
     .optimize = optimize,
 });
 
-exe.root_module.addImport("zig-test-framework", zig_test.module("zig-test-framework"));
+exe.root*module.addImport("zig-test-framework", zig*test.module("zig-test-framework"));
 ```
 
 **In `build.zig.zon`:**
+
 ```zig
 .dependencies = .{
     .@"zig-test-framework" = .{
@@ -132,6 +142,7 @@ exe.root_module.addImport("zig-test-framework", zig_test.module("zig-test-framew
 ### Usage in Starter Project
 
 **Project Structure:**
+
 ```
 my-project/
 ├── src/
@@ -146,6 +157,7 @@ my-project/
 ```
 
 **Key Integration Points:**
+
 1. **Pre-commit hooks**: Run tests before each commit
 2. **CI/CD pipelines**: Coverage reporting with HTML output
 3. **Memory profiling**: Detect leaks in long-running processes
@@ -153,11 +165,13 @@ my-project/
 5. **Watch mode**: Live test runner during development
 
 ### Dependencies & Requirements
+
 - **Zig**: 0.13.0 or later
 - **External tools**: kcov (optional, for coverage)
 - **No library dependencies**: Uses only Zig stdlib
 
 ### Strengths
+
 ✅ Comprehensive assertion library  
 ✅ Async test support with timeouts  
 ✅ Multiple reporter formats  
@@ -166,6 +180,7 @@ my-project/
 ✅ Zero dependencies  
 
 ### Considerations
+
 - Memory cleanup required: `cleanupRegistry()` after tests
 - Async tests need explicit timeout configuration
 - Coverage requires external tool (kcov/grindcov)
@@ -175,6 +190,7 @@ my-project/
 ## 2. Zig CLI
 
 ### Overview
+
 A powerful, type-safe CLI framework with compile-time validation, interactive prompts, and configuration file support. Inspired by TypeScript's clapp library.
 
 **GitHub**: zig-utils/zig-cli
@@ -182,6 +198,7 @@ A powerful, type-safe CLI framework with compile-time validation, interactive pr
 ### Functionality
 
 #### CLI Framework
+
 - **Type-Safe Commands**: Define CLI with structs, compile-time field validation
 - **Auto-generated Help**: Automatic help text from struct definitions
 - **Subcommands**: Nested command support with aliases
@@ -189,6 +206,7 @@ A powerful, type-safe CLI framework with compile-time validation, interactive pr
 - **Middleware System**: Pre/post command hooks with type safety
 
 #### Interactive Prompts (13+ Types!)
+
 - **Text Input**: With validation and placeholders
 - **Confirmation Prompts**: Yes/no questions
 - **Select**: Single-choice selection
@@ -204,6 +222,7 @@ A powerful, type-safe CLI framework with compile-time validation, interactive pr
 - **Table**: Column-based data display with multiple styles
 
 #### Terminal Features
+
 - **ANSI Colors**: Full color support with auto-detection
 - **Style Chaining**: `.red().bold().underline()` API
 - **Raw Mode**: Cross-platform terminal handling
@@ -215,6 +234,7 @@ A powerful, type-safe CLI framework with compile-time validation, interactive pr
 - **Table Rendering**: Column alignment and multiple border styles
 
 #### Configuration Support
+
 - **Multiple Formats**: TOML, JSONC (JSON with Comments), JSON5
 - **Auto-discovery**: Search in standard locations
 - **Type-safe Loading**: Compile-time schema validation
@@ -225,6 +245,7 @@ A powerful, type-safe CLI framework with compile-time validation, interactive pr
 ### API Patterns
 
 #### Type-Safe CLI Command
+
 ```zig
 const std = @import("std");
 const cli = @import("zig-cli");
@@ -243,12 +264,13 @@ fn greet(ctx: *cli.Context(GreetOptions)) !void {
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    defer * = gpa.deinit();
     const allocator = gpa.allocator();
 
     var cmd = try cli.command(GreetOptions).init(allocator, "greet", "Greet someone");
     defer cmd.deinit();
-    _ = cmd.setAction(greet);
+
+    * = cmd.setAction(greet);
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
@@ -257,6 +279,7 @@ pub fn main() !void {
 ```
 
 #### Interactive Prompts
+
 ```zig
 // Text prompt
 var text = prompt.TextPrompt.init(allocator, "What is your name?");
@@ -265,7 +288,7 @@ const name = try text.prompt();
 defer allocator.free(name);
 
 // Select prompt
-const choices = [_]prompt.SelectPrompt.Choice{
+const choices = [*]prompt.SelectPrompt.Choice{
     .{ .label = "Option 1", .value = "opt1" },
     .{ .label = "Option 2", .value = "opt2" },
 };
@@ -275,14 +298,15 @@ const selected = try select.prompt();
 ```
 
 #### Configuration Loading
+
 ```zig
 const AppConfig = struct {
     database: struct {
         host: []const u8,
         port: u16,
-        max_connections: u32 = 100,
+        max*connections: u32 = 100,
     },
-    log_level: enum { debug, info, warn, @"error" } = .info,
+    log*level: enum { debug, info, warn, @"error" } = .info,
     debug: bool = false,
 };
 
@@ -296,6 +320,7 @@ std.debug.print("DB: {s}:{d}\n", .{
 ```
 
 #### Middleware
+
 ```zig
 var chain = cli.Middleware.MiddlewareChain.init(allocator);
 defer chain.deinit();
@@ -304,26 +329,28 @@ try chain.use(cli.Middleware.Middleware.init("logging", cli.Middleware.loggingMi
 try chain.use(cli.Middleware.Middleware.init("timing", cli.Middleware.timingMiddleware));
 
 fn authMiddleware(ctx: *cli.Middleware.MiddlewareContext) !bool {
-    const is_authenticated = checkAuth();
-    return is_authenticated;  // true = continue, false = stop
+    const is*authenticated = checkAuth();
+    return is*authenticated;  // true = continue, false = stop
 }
 ```
 
 ### Installation & Integration
 
 **In `build.zig`:**
+
 ```zig
-const zig_cli = b.dependency("zig-cli", .{
+const zig*cli = b.dependency("zig-cli", .{
     .target = target,
     .optimize = optimize,
 });
 
-exe.root_module.addImport("zig-cli", zig_cli.module("zig-cli"));
+exe.root*module.addImport("zig-cli", zig*cli.module("zig-cli"));
 ```
 
 ### Usage in Starter Project
 
 **Multi-command CLI Application:**
+
 ```zig
 // Define subcommand options as structs
 const ServerOptions = struct {
@@ -345,24 +372,29 @@ fn clientAction(ctx: *cli.Context(ClientOptions)) !void { }
 ```
 
 **Interactive Configuration Setup:**
+
 ```zig
 var name = prompt.TextPrompt.init(allocator, "Project name?");
-const project_name = try name.prompt();
-defer allocator.free(project_name);
+const project*name = try name.prompt();
+defer allocator.free(project*name);
 
 var port = prompt.NumberPrompt.init(allocator, "Port?", .integer);
-_ = port.withRange(1, 65535).withDefault(8080);
-const port_num = @as(u16, @intFromFloat(try port.prompt()));
+
+* = port.withRange(1, 65535).withDefault(8080);
+
+const port*num = @as(u16, @intFromFloat(try port.prompt()));
 
 // Save configuration...
 ```
 
 ### Dependencies & Requirements
+
 - **No external dependencies**: Uses only Zig stdlib
 - **Cross-platform**: macOS, Linux, Windows
 - **Terminal support**: Auto-detection of color/unicode support
 
 ### Strengths
+
 ✅ Compile-time type validation  
 ✅ Rich interactive prompts  
 ✅ Type-safe configuration loading  
@@ -372,6 +404,7 @@ const port_num = @as(u16, @intFromFloat(try port.prompt()));
 ✅ <1ms startup time  
 
 ### Considerations
+
 - Prompts require terminal I/O
 - Windows terminal support may need improvement
 - Configuration auto-discovery searches multiple standard locations
@@ -381,6 +414,7 @@ const port_num = @as(u16, @intFromFloat(try port.prompt()));
 ## 3. Zig Config
 
 ### Overview
+
 A lightweight, zero-dependency configuration loader inspired by Bun's bunfig. Supports JSON, environment variables, and multi-source merging with deep structure support.
 
 **GitHub**: zig-utils/zig-config
@@ -388,12 +422,14 @@ A lightweight, zero-dependency configuration loader inspired by Bun's bunfig. Su
 ### Functionality
 
 #### Configuration Sources (Priority Order)
+
 1. **Environment Variables** (highest priority)
 2. **Local Project File** (`./myapp.json`, `./config/myapp.json`, `./.config/myapp.json`)
 3. **Home Directory** (`~/.config/myapp.json`)
 4. **Defaults** (provided in code - lowest priority)
 
 #### Type-Safe Configuration
+
 - **Compile-time Type Checking**: No runtime type errors
 - **Default Values**: Define in struct fields
 - **Optional Fields**: Use `?T` for optional config
@@ -402,6 +438,7 @@ A lightweight, zero-dependency configuration loader inspired by Bun's bunfig. Su
 - **Environment Variable Parsing**: Auto-parse booleans, numbers, arrays, JSON
 
 #### Advanced Features
+
 - **Deep Merging**: Three strategies: replace, concat, smart
 - **Circular Reference Detection**: Prevents infinite loops
 - **Multiple Format Support**: JSON and Zig files (extensible)
@@ -409,32 +446,34 @@ A lightweight, zero-dependency configuration loader inspired by Bun's bunfig. Su
 - **Caching**: Optional caching with TTL
 
 #### Environment Variable Format
+
 ```bash
 # Boolean values
-MYAPP_DEBUG=true        # → bool
-MYAPP_VERBOSE=1         # → bool (true)
+MYAPP*DEBUG=true        # → bool
+MYAPP*VERBOSE=1         # → bool (true)
 
 # Numbers
-MYAPP_PORT=3000         # → integer
-MYAPP_TIMEOUT=30.5      # → float
+MYAPP*PORT=3000         # → integer
+MYAPP*TIMEOUT=30.5      # → float
 
 # Arrays (comma-separated)
-MYAPP_HOSTS=localhost,api.example.com
+MYAPP*HOSTS=localhost,api.example.com
 
 # JSON objects/arrays
-MYAPP_DATABASE='{"host":"localhost","port":5432}'
-MYAPP_TAGS='["production","web"]'
+MYAPP*DATABASE='{"host":"localhost","port":5432}'
+MYAPP*TAGS='["production","web"]'
 
-# Naming: UPPERCASE_PREFIX + NESTED_KEY
-# Example: database.host → MYAPP_DATABASE_HOST
+# Naming: UPPERCASE*PREFIX + NESTED*KEY
+# Example: database.host → MYAPP*DATABASE*HOST
 ```
 
 ### API Patterns
 
 #### Basic Configuration
+
 ```zig
 const std = @import("std");
-const zig_config = @import("zig-config");
+const zig*config = @import("zig-config");
 
 const AppConfig = struct {
     port: u16 = 8080,
@@ -447,33 +486,35 @@ const AppConfig = struct {
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    defer * = gpa.deinit();
     const allocator = gpa.allocator();
 
     // Load with compile-time type checking
-    var config = try zig_config.loadConfig(AppConfig, allocator, .{
+    var config = try zig*config.loadConfig(AppConfig, allocator, .{
         .name = "myapp",
     });
     defer config.deinit(allocator);
 
     // Type-safe access!
     const port: u16 = config.value.port;
-    const db_host = config.value.database.host;
+    const db*host = config.value.database.host;
 }
 ```
 
 #### Advanced Configuration with Options
+
 ```zig
-var config = try zig_config.loadConfig(AppConfig, allocator, .{
+var config = try zig*config.loadConfig(AppConfig, allocator, .{
     .name = "myapp",
     .cwd = "/path/to/project",              // Custom working directory
-    .env_prefix = "CUSTOM",                 // Use CUSTOM_* instead of MYAPP_*
-    .merge_strategy = .smart,               // .replace, .concat, .smart
+    .env*prefix = "CUSTOM",                 // Use CUSTOM** instead of MYAPP**
+    .merge*strategy = .smart,               // .replace, .concat, .smart
 });
 defer config.deinit(allocator);
 ```
 
 #### Deep Merging
+
 ```zig
 var target = std.json.ObjectMap.init(allocator);
 defer target.deinit();
@@ -483,7 +524,7 @@ var source = std.json.ObjectMap.init(allocator);
 defer source.deinit();
 try source.put("b", .{ .integer = 2 });
 
-const merged = try zig_config.deepMerge(
+const merged = try zig*config.deepMerge(
     allocator,
     .{ .object = target },
     .{ .object = source },
@@ -493,8 +534,9 @@ const merged = try zig_config.deepMerge(
 ```
 
 #### Error Handling
+
 ```zig
-const config = zig_config.loadConfig(AppConfig, allocator, options) catch |err| switch (err) {
+const config = zig*config.loadConfig(AppConfig, allocator, options) catch |err| switch (err) {
     error.ConfigFileNotFound => {
         // Use defaults or create new config
         std.debug.print("No config found, using defaults\n", .{});
@@ -510,42 +552,47 @@ defer config.deinit(allocator);
 ```
 
 ### Configuration Result Structure
+
 ```zig
 pub const ConfigResult = struct {
     value: T,                           // The actual typed config
-    source: ConfigSource,               // Primary source (.file_local, .env_vars, etc)
+    source: ConfigSource,               // Primary source (.file*local, .env*vars, etc)
     sources: []SourceInfo,              // All sources that contributed
-    loaded_at: i64,                     // Timestamp
+    loaded*at: i64,                     // Timestamp
 };
 ```
 
 ### Installation & Integration
 
 **In `build.zig`:**
+
 ```zig
-const zig_config = b.dependency("zig-config", .{
+const zig*config = b.dependency("zig-config", .{
     .target = target,
     .optimize = optimize,
 });
 
-exe.root_module.addImport("zig-config", zig_config.module("zig-config"));
+exe.root*module.addImport("zig-config", zig*config.module("zig-config"));
 ```
 
 ### Merge Strategies
 
 **Replace** (default for primitives):
+
 ```zig
 .{ .strategy = .replace }
 // [1, 2] + [3, 4] = [3, 4]
 ```
 
 **Concat** (for arrays):
+
 ```zig
 .{ .strategy = .concat }
 // [1, 2] + [2, 3] = [1, 2, 3]  (with deduplication)
 ```
 
 **Smart** (for object arrays):
+
 ```zig
 .{ .strategy = .smart }
 // [{"id": 1, "name": "a"}] + [{"id": 1, "name": "b"}]
@@ -555,6 +602,7 @@ exe.root_module.addImport("zig-config", zig_config.module("zig-config"));
 ### Usage in Starter Project
 
 **Project-wide Configuration:**
+
 ```
 my-project/
 ├── config/
@@ -570,28 +618,31 @@ my-project/
 ```
 
 **Load Configuration in Main:**
+
 ```zig
 const Config = struct {
-    app_name: []const u8,
+    app*name: []const u8,
     environment: enum { dev, prod, test } = .dev,
     database: struct {
         url: []const u8,
-        pool_size: u32 = 10,
+        pool*size: u32 = 10,
     },
 };
 
-var config = try zig_config.loadConfig(Config, allocator, .{
+var config = try zig*config.loadConfig(Config, allocator, .{
     .name = "myapp",
 });
 defer config.deinit(allocator);
 ```
 
 ### Dependencies & Requirements
+
 - **Zig**: 0.13.0 or later
 - **Zero dependencies**: Uses only Zig stdlib
 - **All tests passing**: 20/20 tests (4 known benign memory "leaks" from Zig's JSON parser)
 
 ### Strengths
+
 ✅ Multi-source configuration loading  
 ✅ Type-safe compile-time checking  
 ✅ Environment variable auto-parsing  
@@ -600,6 +651,7 @@ defer config.deinit(allocator);
 ✅ File discovery with sensible defaults  
 
 ### Considerations
+
 - Config discovery searches multiple locations (be aware of precedence)
 - JSON parser has internal arena allocator (expected behavior)
 - Limited to JSON format for files (but extensible)
@@ -609,6 +661,7 @@ defer config.deinit(allocator);
 ## 4. Zig Error Handling (Result Type)
 
 ### Overview
+
 A functional error handling library inspired by Rust's `Result<T, E>` and TypeScript's neverthrow. Provides chainable operations, pattern matching, and type-safe error composition.
 
 **GitHub**: zig-utils/zig-error-handling
@@ -616,11 +669,13 @@ A functional error handling library inspired by Rust's `Result<T, E>` and TypeSc
 ### Functionality
 
 #### Result Type
+
 - **Ok/Err States**: Explicit success (Ok) and failure (Err) representation
 - **Type Safety**: Both value type `T` and error type `E` are explicit
 - **No Unwrapping Overhead**: Compiles to efficient Zig code
 
 #### Transformations
+
 - **map**: Transform Ok values
 - **mapErr**: Transform Err values
 - **mapBoth**: Transform both variants to common type
@@ -628,20 +683,24 @@ A functional error handling library inspired by Rust's `Result<T, E>` and TypeSc
 - **orElse**: Provide fallback on error
 
 #### Extraction
+
 - **unwrap**: Get Ok value or panic
 - **unwrapOr**: Get Ok value with default
 - **unwrapOrElse**: Get Ok value or compute from error
 - **expect**: Get Ok value or panic with message
 
 #### Pattern Matching
+
 - **match**: Elegant pattern matching on Ok/Err
 
 #### Collection Operations
+
 - **collect**: Transform slice of Results to Result of slice
 - **partition**: Split Results into separate Ok and Err arrays
 - **sequence**: Short-circuit on first error
 
 #### Advanced Operations
+
 - **inspect**: Side effects without transformation
 - **flatten**: Unwrap nested Results
 - **transpose**: Convert Result of Optional to Optional of Result
@@ -649,6 +708,7 @@ A functional error handling library inspired by Rust's `Result<T, E>` and TypeSc
 - **combine3/combine4**: Combine multiple Results
 
 #### Conversion
+
 - **toErrorUnion**: Convert to Zig error union for safe unwrapping
 - **okOrNull**: Convert to optional, discarding error
 - **errOrNull**: Convert to optional error, discarding value
@@ -656,6 +716,7 @@ A functional error handling library inspired by Rust's `Result<T, E>` and TypeSc
 ### API Patterns
 
 #### Basic Result Usage
+
 ```zig
 const std = @import("std");
 const Result = @import("result").Result;
@@ -679,6 +740,7 @@ pub fn main() !void {
 ```
 
 #### Chaining Operations
+
 ```zig
 fn parseNumber(str: []const u8) Result(i32, []const u8) {
     const num = std.fmt.parseInt(i32, str, 10) catch {
@@ -700,6 +762,7 @@ const result = parseNumber("42")
 ```
 
 #### Transformations
+
 ```zig
 const result = Result(i32, []const u8).ok(21);
 
@@ -710,13 +773,14 @@ const doubled = result.map(i32, struct {
 // doubled is Result(i32, []const u8).ok(42)
 
 // Transform error
-const mapped_err = Result(i32, []const u8).err("failed")
+const mapped*err = Result(i32, []const u8).err("failed")
     .mapErr([]const u8, struct {
         fn toUpper(s: []const u8) []const u8 { return "FAILED"; }
     }.toUpper);
 ```
 
 #### Pattern Matching
+
 ```zig
 const result = Result(i32, []const u8).ok(42);
 
@@ -731,9 +795,10 @@ const message = result.match([]const u8, .{
 ```
 
 #### Collection Operations
+
 ```zig
 // Collect all Results into Result of slice
-const results = [_]Result(i32, []const u8){
+const results = [*]Result(i32, []const u8){
     Result(i32, []const u8).ok(1),
     Result(i32, []const u8).ok(2),
     Result(i32, []const u8).ok(3),
@@ -745,7 +810,7 @@ const collected = collect(i32, []const u8, allocator, &results);
 defer if (collected.isOk()) allocator.free(collected.unwrap());
 
 // Partition into separate Ok and Err arrays
-const results2 = [_]Result(i32, []const u8){
+const results2 = [*]Result(i32, []const u8){
     Result(i32, []const u8).ok(1),
     Result(i32, []const u8).err("error1"),
     Result(i32, []const u8).ok(2),
@@ -759,6 +824,7 @@ defer allocator.free(partitioned.errs);
 ```
 
 #### Conversion to Error Union
+
 ```zig
 const fromErrorUnion = @import("result").fromErrorUnion;
 
@@ -769,12 +835,13 @@ const result = fromErrorUnion(errorUnion);
 
 // Convert Result to error union for safe unwrapping
 const result2 = Result(i32, anyerror).ok(42);
-const error_union = result2.toErrorUnion();  // Returns anyerror!i32
+const error*union = result2.toErrorUnion();  // Returns anyerror!i32
 ```
 
 ### Installation & Integration
 
 **In `build.zig.zon`:**
+
 ```zig
 .dependencies = .{
     .result = .{
@@ -785,13 +852,14 @@ const error_union = result2.toErrorUnion();  // Returns anyerror!i32
 ```
 
 **In `build.zig`:**
+
 ```zig
 const result = b.dependency("result", .{
     .target = target,
     .optimize = optimize,
 });
 
-exe.root_module.addImport("result", result.module("result"));
+exe.root*module.addImport("result", result.module("result"));
 ```
 
 **Or simple copy:** Just copy `src/result.zig` into your project!
@@ -799,6 +867,7 @@ exe.root_module.addImport("result", result.module("result"));
 ### Usage in Starter Project
 
 **Application Result Type:**
+
 ```zig
 const AppResult = Result(T, AppError);
 
@@ -823,22 +892,24 @@ const db = loadConfiguration()
 ```
 
 **Error Handling in CLI Applications:**
+
 ```zig
 const CliResult = Result(u8, CliError);  // u8 is exit code
 
 const CliError = union(enum) {
-    file_not_found: []const u8,
-    invalid_argument: []const u8,
-    io_error: std.fs.File.OpenError,
+    file*not*found: []const u8,
+    invalid*argument: []const u8,
+    io*error: std.fs.File.OpenError,
 };
 
 fn handleCommand(cmd: []const u8) CliResult {
     // Return CliResult.ok(0) for success
-    // Return CliResult.err(error_variant) for failure
+    // Return CliResult.err(error*variant) for failure
 }
 ```
 
 ### Dependencies & Requirements
+
 - **Zig**: 0.13.0 or later
 - **Zero dependencies**: Uses only Zig stdlib
 - **Single file**: Can be copied directly into projects
@@ -855,17 +926,20 @@ fn handleCommand(cmd: []const u8) CliResult {
 | Combine results | Manual | `combine` |
 
 **Use Error Union when:**
+
 - Simple error handling needed
 - Using Zig's idiomatic error propagation
 - Errors are truly exceptional
 
 **Use Result when:**
+
 - Errors are expected and frequent
 - Need functional composition
 - Want fine-grained error control
 - Prefer explicit error handling
 
 ### Strengths
+
 ✅ Rust-inspired Result type  
 ✅ Chainable functional composition  
 ✅ Pattern matching support  
@@ -875,6 +949,7 @@ fn handleCommand(cmd: []const u8) CliResult {
 ✅ Single file library (copy-paste friendly)  
 
 ### Considerations
+
 - Requires understanding of Result pattern
 - Function type specifications can be verbose
 - No automatic error propagation (explicit `andThen` calls needed)
@@ -905,7 +980,7 @@ zig-starter/
 │   │   ├── config.test.zig
 │   │   └── cli.test.zig
 │   ├── integration/
-│   │   └── end_to_end.test.zig
+│   │   └── end*to*end.test.zig
 │   └── fixtures/
 │       ├── config.test.json
 │       └── sample.data
@@ -921,6 +996,7 @@ zig-starter/
 ### Integration Checklist
 
 #### Phase 1: Core Setup
+
 - [ ] Add all four libraries as dependencies in `build.zig.zon`
 - [ ] Configure `build.zig` to import each library
 - [ ] Create basic test structure with `*.test.zig` files
@@ -928,6 +1004,7 @@ zig-starter/
 - [ ] Create configuration types in `src/config.zig`
 
 #### Phase 2: Testing Infrastructure
+
 - [ ] Configure test runner with `zig build test`
 - [ ] Add pre-commit hook to run tests
 - [ ] Set up coverage collection
@@ -935,6 +1012,7 @@ zig-starter/
 - [ ] Document testing patterns
 
 #### Phase 3: CLI Foundation
+
 - [ ] Design command structure using type-safe API
 - [ ] Implement main CLI entry point
 - [ ] Add interactive prompts for user input
@@ -942,12 +1020,14 @@ zig-starter/
 - [ ] Add middleware for logging/timing
 
 #### Phase 4: Error Handling
+
 - [ ] Define custom error types using Result pattern
 - [ ] Replace error unions with Result where appropriate
 - [ ] Create error translation layer for user-friendly messages
 - [ ] Implement error recovery strategies
 
 #### Phase 5: Documentation
+
 - [ ] Document CLI commands and options
 - [ ] Provide configuration examples
 - [ ] Create testing guide
@@ -962,13 +1042,13 @@ zig-starter/
 // src/main.zig
 const std = @import("std");
 const cli = @import("zig-cli");
-const zig_config = @import("zig-config");
+const zig*config = @import("zig-config");
 const result = @import("result");
 const ztf = @import("zig-test-framework");
 
 // Define configuration
 const AppConfig = struct {
-    app_name: []const u8 = "MyApp",
+    app*name: []const u8 = "MyApp",
     port: u16 = 8080,
     debug: bool = false,
     environment: enum { dev, prod } = .dev,
@@ -978,9 +1058,9 @@ const AppConfig = struct {
 const AppResult = result.Result(void, AppError);
 
 const AppError = union(enum) {
-    config_error: []const u8,
-    io_error: std.fs.File.OpenError,
-    invalid_input: []const u8,
+    config*error: []const u8,
+    io*error: std.fs.File.OpenError,
+    invalid*input: []const u8,
 };
 
 // CLI command options
@@ -991,38 +1071,38 @@ const ServerOptions = struct {
 
 fn serverAction(ctx: *cli.Context(ServerOptions)) !void {
     const stdout = std.io.getStdOut().writer();
-    
+
     // Load configuration
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    defer * = gpa.deinit();
     const allocator = gpa.allocator();
-    
-    var config = try zig_config.loadConfig(AppConfig, allocator, .{
+
+    var config = try zig*config.loadConfig(AppConfig, allocator, .{
         .name = "myapp",
     });
     defer config.deinit(allocator);
-    
+
     const host = ctx.get(.host);
     const port = ctx.get(.port);
-    
+
     try stdout.print("Starting server at {s}:{d}\n", .{host, port});
-    try stdout.print("App: {s}\n", .{config.value.app_name});
+    try stdout.print("App: {s}\n", .{config.value.app*name});
 }
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    defer * = gpa.deinit();
     const allocator = gpa.allocator();
-    
+
     var cmd = try cli.command(ServerOptions).init(
         allocator,
         "myapp",
         "My application",
     );
     defer cmd.deinit();
-    
-    _ = cmd.setAction(serverAction);
-    
+
+    * = cmd.setAction(serverAction);
+
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
     try cli.Parser.init(allocator).parse(cmd.getCommand(), args[1..]);
@@ -1033,7 +1113,7 @@ pub fn main() !void {
 
 ## Library Feature Compatibility
 
-### Can Libraries Work Together?
+### Can Libraries Work Together
 
 | Combination | Compatible | Use Case |
 |-------------|-----------|----------|
@@ -1049,24 +1129,28 @@ pub fn main() !void {
 ### Recommended Combinations by Use Case
 
 **CLI Tool:**
+
 - zig-cli (main framework)
 - zig-config (configuration)
 - zig-error-handling (error handling)
 - zig-test-framework (testing)
 
 **Library/SDK:**
+
 - zig-error-handling (primary)
 - zig-config (optional)
 - zig-test-framework (essential)
 - zig-cli (optional)
 
 **Web Service:**
+
 - zig-cli (for server commands)
 - zig-config (for app configuration)
 - zig-error-handling (for request handling)
 - zig-test-framework (for testing)
 
 **Daemon/Background Process:**
+
 - zig-config (configuration management)
 - zig-error-handling (error recovery)
 - zig-test-framework (functional testing)
@@ -1077,18 +1161,21 @@ pub fn main() !void {
 ## Performance Characteristics
 
 ### Binary Size
+
 - **zig-test-framework**: ~500KB (executable)
 - **zig-cli**: ~200KB (executable)
 - **zig-config**: ~100KB (with app)
 - **zig-error-handling**: <10KB (minimal overhead)
 
 ### Startup Time
+
 - **zig-cli**: <1ms
 - **zig-config**: <5ms (with file discovery)
 - **zig-test-framework**: <10ms (test discovery)
 - **zig-error-handling**: Zero overhead (compile-time)
 
 ### Memory Usage
+
 - **Interactive Prompts**: ~50KB per prompt
 - **Test Registry**: ~200KB for 100 tests
 - **Config Loading**: ~100KB for typical configs
@@ -1099,6 +1186,7 @@ pub fn main() !void {
 ## Best Practices
 
 ### Testing
+
 1. Use test discovery mode for automatic test detection
 2. Group related tests in `describe()` blocks
 3. Use mocks for external dependencies
@@ -1106,6 +1194,7 @@ pub fn main() !void {
 5. Keep test fixtures in `tests/fixtures/`
 
 ### CLI Development
+
 1. Use structs to define command options (compile-time safe)
 2. Leverage middleware for cross-cutting concerns
 3. Provide sensible defaults in struct fields
@@ -1113,6 +1202,7 @@ pub fn main() !void {
 5. Document commands in struct field comments
 
 ### Configuration
+
 1. Provide sensible defaults in code
 2. Support environment variable overrides
 3. Use file discovery for standard locations
@@ -1120,6 +1210,7 @@ pub fn main() !void {
 5. Validate configuration early in startup
 
 ### Error Handling
+
 1. Define custom Result types for domain-specific errors
 2. Use pattern matching for complex error handling
 3. Chain operations with `andThen()` where possible
@@ -1131,34 +1222,47 @@ pub fn main() !void {
 ## Troubleshooting & Common Issues
 
 ### Test Framework
+
 **Issue**: Memory leaks when running tests
+
 - **Solution**: Always call `cleanupRegistry()` after `runTests()`
 
 **Issue**: Tests hanging (timeout)
+
 - **Solution**: Set explicit timeout with `itTimeout()` or `itAsyncTimeout()`
 
 **Issue**: Coverage not generating
+
 - **Solution**: Install kcov: `brew install kcov` or `apt-get install kcov`
 
 ### CLI
+
 **Issue**: Prompt not working in CI
+
 - **Solution**: Prompts require TTY; skip in CI or use environment variables
 
 **Issue**: Command not recognized
+
 - **Solution**: Check command name matches struct definition; verify parser initialization
 
 ### Configuration
+
 **Issue**: Config file not found
+
 - **Solution**: Check file naming and location against discovery paths; verify file permissions
 
 **Issue**: Type mismatch in configuration
+
 - **Solution**: Use correct types in struct definition; check environment variable format
 
 ### Error Handling
+
 **Issue**: Unwrap panic
+
 - **Solution**: Use `unwrapOr()` or `unwrapOrElse()` instead of `unwrap()` for fallible operations
 
 **Issue**: Result type mismatch
+
 - **Solution**: Ensure error type `E` is consistent across chain operations
 
 ---
@@ -1168,6 +1272,7 @@ pub fn main() !void {
 All libraries require **Zig 0.13.0 or later**.
 
 As of October 2025:
+
 - **zig-test-framework**: v0.1.0+ (mature, production-ready)
 - **zig-cli**: v0.1.0+ (stable, recommended)
 - **zig-config**: v0.1.0+ (stable, 20/20 tests passing)
@@ -1178,18 +1283,21 @@ As of October 2025:
 ## Additional Resources
 
 ### Official Documentation
+
 - zig-test-framework: README.md, docs/api.md, examples/
 - zig-cli: README.md, examples/
 - zig-config: README.md, examples/
 - zig-error-handling: README.md, examples/
 
 ### Key Example Files
-- **Test Framework**: `/examples/basic_test.zig`, `/examples/advanced_test.zig`, `/examples/async_tests.zig`
+
+- **Test Framework**: `/examples/basic*test.zig`, `/examples/advanced*test.zig`, `/examples/async*tests.zig`
 - **CLI**: `/examples/typed.zig`, `/examples/config.zig`, `/examples/prompts.zig`
 - **Config**: `/examples/basic.zig`
 - **Error Handling**: `/examples/basic.zig`
 
 ### Testing Examples
+
 ```bash
 cd /path/to/library
 zig build test                    # Run all tests
@@ -1209,6 +1317,7 @@ These four libraries form a comprehensive foundation for professional Zig applic
 4. **zig-error-handling** - Enables functional, chainable error handling
 
 Together, they provide:
+
 - ✅ Production-grade testing infrastructure
 - ✅ Type-safe configuration management
 - ✅ Rich, interactive CLI experiences
@@ -1217,4 +1326,3 @@ Together, they provide:
 - ✅ Minimal startup time and binary size
 
 Perfect for building professional Zig applications that are testable, configurable, user-friendly, and maintainable.
-

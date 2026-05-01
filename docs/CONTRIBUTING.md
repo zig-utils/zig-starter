@@ -5,21 +5,24 @@ Thank you for your interest in contributing to zig-starter! This document provid
 ## Getting Started
 
 1. **Fork the repository**
+
    ```bash
-   # Fork on GitHub, then clone your fork
+# Fork on GitHub, then clone your fork
    git clone https://github.com/YOUR_USERNAME/zig-starter.git
    cd zig-starter
    ```
 
 2. **Install dependencies**
+
    ```bash
    pantry install
    ```
 
 3. **Create a feature branch**
+
    ```bash
    git checkout -b feature/my-feature
-   # or
+# or
    git checkout -b fix/my-bugfix
    ```
 
@@ -46,6 +49,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -56,6 +60,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `ci`: CI/CD changes
 
 **Examples:**
+
 ```bash
 git commit -m "feat: add JSON parsing support"
 git commit -m "fix: resolve memory leak in processData"
@@ -80,18 +85,21 @@ zig build test --test-filter "my_test_name"
 ### Pull Request Process
 
 1. **Update your branch**
+
    ```bash
    git fetch origin
    git rebase origin/main
    ```
 
 2. **Run tests and formatting**
+
    ```bash
    zig build test
    zig fmt src/
    ```
 
 3. **Push your changes**
+
    ```bash
    git push origin feature/my-feature
    ```
@@ -114,6 +122,7 @@ zig build test --test-filter "my_test_name"
 Brief description of the changes
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
@@ -123,10 +132,12 @@ Brief description of the changes
 Describe how you tested the changes
 
 ## Checklist
+
 - [ ] Tests pass locally
 - [ ] Code follows style guidelines
 - [ ] Documentation updated
 - [ ] Commit messages follow convention
+
 ```
 
 ## Building and Testing
@@ -160,6 +171,7 @@ zig build test --test-filter "StarterLib"
 ## Adding Dependencies
 
 1. **Update package.jsonc**
+
    ```jsonc
    {
      "dependencies": {
@@ -169,11 +181,13 @@ zig build test --test-filter "StarterLib"
    ```
 
 2. **Install dependencies**
+
    ```bash
    pantry install
    ```
 
 3. **Update build.zig**
+
    ```zig
    const new_dep_mod = b.addModule("new-dep", .{
        .root_source_file = b.path("../new-dep/src/root.zig"),
@@ -212,6 +226,7 @@ pub fn processData(data: []const u8) Result([]u8, ProcessError) {
 ## Release Process
 
 1. **Update version**
+
    ```bash
    bump minor --changelog
    ```
@@ -223,6 +238,7 @@ pub fn processData(data: []const u8) Result([]u8, ProcessError) {
 3. **Create release**
    - Tag is created automatically by zig-bump
    - Push to trigger CI/CD
+
    ```bash
    git push --follow-tags
    ```

@@ -18,6 +18,7 @@ All four libraries are **zero-dependency** (stdlib only), production-ready, and 
 ## Library Locations
 
 All repositories are cloned and available at:
+
 - `/Users/chrisbreuer/Code/zig-test-framework/` - Testing framework
 - `/Users/chrisbreuer/Code/zig-cli/` - CLI framework
 - `/Users/chrisbreuer/Code/zig-config/` - Configuration loader
@@ -28,9 +29,11 @@ All repositories are cloned and available at:
 ## Key Features by Library
 
 ### zig-test-framework
+
 **Status:** Production-ready, feature-complete
 
 **Core Testing Capabilities:**
+
 - Automatic test discovery (`*.test.zig` files)
 - Jest/Vitest-style `describe()` and `it()` syntax
 - 20+ assertion types (toBe, toContain, toThrow, etc.)
@@ -46,6 +49,7 @@ All repositories are cloned and available at:
 - YAML/JSON/TOML configuration support
 
 **API Highlights:**
+
 ```zig
 // Describe-It syntax
 try ztf.describe(alloc, "Suite", struct { fn tests(alloc) !void { ... }}.tests);
@@ -68,9 +72,11 @@ try mock.toHaveBeenCalledWith(arg);
 ---
 
 ### zig-cli
+
 **Status:** Stable and feature-complete
 
 **CLI & Interaction Capabilities:**
+
 - Type-safe command definition (struct-based)
 - Compile-time field validation
 - Auto-generated help text
@@ -95,6 +101,7 @@ try mock.toHaveBeenCalledWith(arg);
 - Configuration file support (TOML, JSONC, JSON5)
 
 **API Highlights:**
+
 ```zig
 // Type-safe command
 const Opts = struct { name: []const u8 = "default", port: u16 = 8080 };
@@ -115,9 +122,11 @@ try progress.start();
 ---
 
 ### zig-config
+
 **Status:** Stable, 20/20 tests passing
 
 **Configuration Capabilities:**
+
 - Multi-source loading (env vars → local files → home → defaults)
 - Type-safe compile-time checking
 - Environment variable auto-parsing (booleans, numbers, arrays, JSON)
@@ -132,12 +141,14 @@ try progress.start();
 - Optional caching with TTL
 
 **Source Priority Order:**
+
 1. Environment variables: `MYAPP_PORT=8080`
 2. Local project: `./myapp.json`, `./config/myapp.json`, `./.config/myapp.json`
 3. Home directory: `~/.config/myapp.json`
 4. Code defaults: struct field initializers
 
 **API Highlights:**
+
 ```zig
 const Config = struct {
     port: u16 = 8080,
@@ -158,9 +169,11 @@ const port: u16 = config.value.port;  // Type-safe!
 ---
 
 ### zig-error-handling
+
 **Status:** Minimal, focused, production-ready
 
 **Error Handling Capabilities:**
+
 - Result type similar to Rust's `Result<T, E>`
 - Ok/Err union-based design
 - Chainable operations (andThen, map, mapErr, orElse)
@@ -173,6 +186,7 @@ const port: u16 = config.value.port;  // Type-safe!
 - Combine multiple Results
 
 **API Highlights:**
+
 ```zig
 fn divide(a: i32, b: i32) Result(i32, []const u8) {
     if (b == 0) return Result(i32, []const u8).err("Division by zero");
@@ -198,6 +212,7 @@ const msg = result.match([]const u8, .{
 ## Integration Patterns
 
 ### Recommended Project Structure
+
 ```
 zig-starter/
 ├── src/
@@ -236,32 +251,37 @@ zig-starter/
 
 ### Integration Checklist
 
-**Phase 1: Setup**
+#### Phase 1: Setup
+
 - [ ] Add all libraries to `build.zig.zon` dependencies
 - [ ] Configure imports in `build.zig`
 - [ ] Copy `result.zig` to src/
 - [ ] Create config struct definition
 - [ ] Create error types
 
-**Phase 2: Testing**
+#### Phase 2: Testing
+
 - [ ] Set up test discovery (`*.test.zig` files)
 - [ ] Create test utilities
 - [ ] Add coverage configuration
 - [ ] Set up pre-commit test hook
 
-**Phase 3: CLI**
+#### Phase 3: CLI
+
 - [ ] Design command structure
 - [ ] Implement type-safe commands
 - [ ] Add interactive prompts where needed
 - [ ] Integrate configuration loading
 
-**Phase 4: Error Handling**
+#### Phase 4: Error Handling
+
 - [ ] Define custom Result types
 - [ ] Replace error unions strategically
 - [ ] Create error translation layer
 - [ ] Document error patterns
 
-**Phase 5: Documentation**
+#### Phase 5: Documentation
+
 - [ ] Document CLI commands
 - [ ] Provide configuration examples
 - [ ] Create testing guide
@@ -289,24 +309,28 @@ zig-starter/
 ## Usage Recommendations by Project Type
 
 ### CLI Tool
+
 - **zig-cli**: Command structure, subcommands, prompts
 - **zig-config**: Configuration management
 - **zig-error-handling**: Error handling and recovery
 - **zig-test-framework**: Testing and validation
 
 ### Library/SDK
+
 - **zig-error-handling**: Primary (Result type)
 - **zig-test-framework**: Essential (testing)
 - **zig-config**: Optional (configuration)
 - **zig-cli**: Optional (CLI utilities)
 
 ### Web Service
+
 - **zig-cli**: Server management commands
 - **zig-config**: App configuration
 - **zig-error-handling**: Request error handling
 - **zig-test-framework**: Functional testing
 
 ### Daemon/Background Process
+
 - **zig-config**: Configuration management
 - **zig-error-handling**: Error recovery
 - **zig-test-framework**: Functional testing
@@ -317,18 +341,21 @@ zig-starter/
 ## Performance Characteristics
 
 ### Binary Size
+
 - zig-cli: ~200KB executable
 - zig-test-framework: ~500KB executable
 - zig-config: ~100KB (with app)
 - zig-error-handling: <10KB (minimal)
 
 ### Startup Time
+
 - zig-cli: <1ms
 - zig-config: <5ms (with file discovery)
 - zig-test-framework: <10ms (test discovery)
 - zig-error-handling: Zero overhead (comptime)
 
 ### Memory Usage
+
 - Interactive prompts: ~50KB per prompt
 - Test registry: ~200KB for 100 tests
 - Config loading: ~100KB for typical configs
@@ -339,7 +366,9 @@ zig-starter/
 ## Key Documentation Files Created
 
 ### 1. ZIG_LIBRARIES_GUIDE.md (1220 lines)
+
 **Comprehensive integration guide covering:**
+
 - Detailed overview of each library
 - Complete API reference with examples
 - Installation and integration instructions
@@ -351,7 +380,9 @@ zig-starter/
 - Integration strategy with checklist
 
 ### 2. LIBRARIES_QUICK_REFERENCE.md (350+ lines)
+
 **Fast lookup cheat sheet containing:**
+
 - Quick API reference for each library
 - Common usage patterns and recipes
 - File organization template
@@ -360,7 +391,9 @@ zig-starter/
 - Key takeaways and best practices
 
 ### 3. EXPLORATION_SUMMARY.md (This file)
+
 **High-level overview including:**
+
 - Executive summary
 - Key features by library
 - Integration patterns
@@ -384,6 +417,7 @@ Your Zig Application
 ```
 
 This means:
+
 - No external build tools required
 - No runtime dependencies to manage
 - No version conflicts with other projects
@@ -407,21 +441,25 @@ All analysis performed with Zig 0.13.0 or later compatible versions:
 ## Known Limitations & Considerations
 
 ### zig-test-framework
+
 - Requires explicit `cleanupRegistry()` call (necessary for memory cleanup)
 - Coverage requires external tool (kcov/grindcov) - graceful fallback if not installed
 - Async tests need explicit timeout configuration
 
 ### zig-cli
+
 - Interactive prompts require TTY (not suitable for CI without configuration)
 - Windows terminal support may need improvement
 - Configuration discovery searches multiple locations (understand precedence)
 
 ### zig-config
+
 - Limited file format support (JSON, extensible but not YAML/TOML in core)
 - JSON parser has internal arena allocator (expected, not a leak)
 - Environment variable naming has specific conversion rules
 
 ### zig-error-handling
+
 - Requires understanding of Result pattern (learning curve from Zig's error unions)
 - Function type specifications can be verbose
 - No automatic error propagation (explicit `andThen` calls needed)
@@ -444,12 +482,14 @@ All analysis performed with Zig 0.13.0 or later compatible versions:
 ## Additional Resources
 
 All repositories are available locally:
+
 - `/Users/chrisbreuer/Code/zig-test-framework/` - Full source and examples
 - `/Users/chrisbreuer/Code/zig-cli/` - Full source and examples
 - `/Users/chrisbreuer/Code/zig-config/` - Full source and examples
 - `/Users/chrisbreuer/Code/zig-error-handling/` - Full source and examples
 
 Each has:
+
 - Comprehensive README.md
 - Examples in `examples/` directory
 - Tests demonstrating usage
@@ -468,6 +508,7 @@ These four libraries provide a **production-grade foundation** for professional 
 - **zig-error-handling** enables functional, chainable error handling
 
 Together they offer:
+
 - Type safety at compile time
 - Zero external dependencies
 - Minimal binary size (<1MB total)
@@ -484,7 +525,7 @@ Together they offer:
 **Documentation Created:** October 2025  
 **Repository:** /Users/chrisbreuer/Code/zig-starter/  
 **Documents:**
+
 1. ZIG_LIBRARIES_GUIDE.md (comprehensive guide)
 2. LIBRARIES_QUICK_REFERENCE.md (cheat sheet)
 3. EXPLORATION_SUMMARY.md (this file)
-

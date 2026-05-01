@@ -9,6 +9,7 @@ This guide will help you set up and use the zig-starter template for your new pr
 ## What's Included
 
 ### Core Files
+
 - `build.zig` - Simple build configuration (no external dependencies required)
 - `build.zig.full` - Full build configuration with all dependencies
 - `build.zig.zon` - Zig package manifest
@@ -19,6 +20,7 @@ This guide will help you set up and use the zig-starter template for your new pr
 - `src/lib.full.zig` - Full-featured library (requires dependencies)
 
 ### Documentation
+
 - `README.md` - Complete usage guide
 - `CONTRIBUTING.md` - Contribution guidelines
 - `SETUP.md` - This file
@@ -40,6 +42,7 @@ zig build test
 ```
 
 **Output:**
+
 ```
 Zig Starter - Simple Version
 =============================
@@ -72,6 +75,7 @@ pantry install
 ```
 
 This will install:
+
 - `zig-cli` - Type-safe CLI framework
 - `zig-config` - Configuration management
 - `zig-error-handling` - Result type for functional error handling
@@ -135,18 +139,21 @@ zig-starter/
 ## Verification
 
 ### Check Build
+
 ```bash
 $ zig build
 # Should complete without errors
 ```
 
 ### Check Tests
+
 ```bash
 $ zig build test
 # All tests passing
 ```
 
 ### Check Executable
+
 ```bash
 $ zig build run
 Zig Starter - Simple Version
@@ -186,6 +193,7 @@ zig build run
 ### 1. Change Project Name
 
 **build.zig.zon:**
+
 ```zig
 .{
     .name = .myproject,  // Change this
@@ -196,6 +204,7 @@ zig build run
 ```
 
 **package.jsonc:**
+
 ```jsonc
 {
   "name": "my-project",  // Change this
@@ -204,6 +213,7 @@ zig build run
 ```
 
 **build.zig:**
+
 ```zig
 const exe = b.addExecutable(.{
     .name = "my-project",  // Change this
@@ -214,6 +224,7 @@ const exe = b.addExecutable(.{
 ### 2. Add New Dependencies
 
 **Edit package.jsonc:**
+
 ```jsonc
 {
   "dependencies": {
@@ -224,11 +235,13 @@ const exe = b.addExecutable(.{
 ```
 
 **Install:**
+
 ```bash
 pantry install
 ```
 
 **Update build.zig:**
+
 ```zig
 const new_dep_mod = b.addModule("new-dep", .{
     .root_source_file = b.path("../new-dep/src/root.zig"),
@@ -246,7 +259,7 @@ lib_mod.addImport("new-dep", new_dep_mod);
 touch src/mymodule.zig
 
 # Import in main.zig
-# const mymodule = @import("mymodule.zig");
+# const mymodule = @import("mymodule.zig")
 ```
 
 ## Version Management
@@ -271,6 +284,7 @@ bump major --changelog
 **Problem:** Dependencies not installed
 
 **Solution:**
+
 ```bash
 pantry install
 # Or use simple version (build.zig.simple)
@@ -281,6 +295,7 @@ pantry install
 **Problem:** Requires Zig 0.15.1+
 
 **Solution:**
+
 ```bash
 # Update Zig using pantry
 pantry install ziglang.org@0.15.1
@@ -294,6 +309,7 @@ pantry install ziglang.org@0.15.1
 **Problem:** Incorrect path in build.zig
 
 **Solution:** Check relative paths match your dependency locations:
+
 ```zig
 // Correct path to dependency
 .root_source_file = b.path("../zig-cli/src/root.zig"),
@@ -320,6 +336,7 @@ pantry install ziglang.org@0.15.1
 ## Support
 
 If you encounter issues:
+
 1. Check this SETUP.md file
 2. Read README.md for usage examples
 3. Review CONTRIBUTING.md for development guidelines
