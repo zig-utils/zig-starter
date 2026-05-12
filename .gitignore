@@ -36,3 +36,4 @@ coverage/
 *.log
 /.zig-cache
 test/
+pantry
