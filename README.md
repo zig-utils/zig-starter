@@ -466,6 +466,16 @@ Ensure `build.zig` has the correct relative paths to dependencies:
 4. Push to the branch
 5. Create a Pull Request
 
+## Community
+
+For help, discussion about best practices, or any other conversation that would benefit from being searchable:
+
+[Discussions on GitHub](https://github.com/zig-utils/zig-starter/discussions)
+
+For casual chit-chat with others using this package:
+
+[Join the Stacks Discord Server](https://stacksjs.com/discord)
+
 ## License
 
 MIT License - feel free to use this template for any project.
