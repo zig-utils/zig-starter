@@ -1,99 +1,32 @@
+//! The library's Zig API. Replace this with your own; keep it free of global state so it can be
+//! wrapped by the C ABI in capi.zig and used from several threads.
 const std = @import("std");
 
-/// Core library functionality (simple version without external dependencies)
-pub const StarterLib = struct {
-    allocator: std.mem.Allocator,
-    config: Config,
+pub const version = std.SemanticVersion{ .major = 0, .minor = 2, .patch = 0 };
 
-    pub const Config = struct {
-        name: []const u8 = "default",
-        debug: bool = false,
-        max_retries: u32 = 3,
-    };
+pub const Error = error{ EmptyInput, InputTooLarge };
 
-    pub fn init(allocator: std.mem.Allocator) !StarterLib {
-        return StarterLib{
-            .allocator = allocator,
-            .config = .{},
-        };
+/// Largest input `checksum` accepts. Libraries that parse untrusted input should always bound it.
+pub const max_input_len: usize = 64 * 1024 * 1024;
+
+/// A sample pure function: FNV-1a over the input. It allocates nothing, which is the shape a
+/// function exported across a C ABI should have.
+pub fn checksum(input: []const u8) Error!u64 {
+    if (input.len == 0) return error.EmptyInput;
+    if (input.len > max_input_len) return error.InputTooLarge;
+    var hash: u64 = 0xcbf29ce484222325;
+    for (input) |byte| {
+        hash ^= byte;
+        hash *%= 0x100000001b3;
     }
-
-    pub fn deinit(self: *StarterLib) void {
-        _ = self;
-    }
-
-    /// Process data and return a copy
-    pub fn processData(self: *StarterLib, data: []const u8) ![]u8 {
-        if (data.len == 0) {
-            return ProcessError.EmptyData;
-        }
-
-        const result = try self.allocator.alloc(u8, data.len);
-        @memcpy(result, data);
-        return result;
-    }
-
-    /// Example function with validation
-    pub fn validateInput(input: []const u8) !void {
-        if (input.len == 0) {
-            return ProcessError.EmptyData;
-        }
-        if (input.len > 1024) {
-            return ProcessError.DataTooLarge;
-        }
-    }
-};
-
-pub const ProcessError = error{
-    EmptyData,
-    DataTooLarge,
-    AllocationFailed,
-    InvalidFormat,
-};
-
-test "StarterLib initialization" {
-    var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var lib = try StarterLib.init(allocator);
-    defer lib.deinit();
-
-    try std.testing.expect(lib.config.max_retries == 3);
-    try std.testing.expect(!lib.config.debug);
+    return hash;
 }
 
-test "processData with valid input" {
-    var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var lib = try StarterLib.init(allocator);
-    defer lib.deinit();
-
-    const input = "test data";
-    const data = try lib.processData(input);
-    defer allocator.free(data);
-
-    try std.testing.expectEqualStrings(input, data);
+test checksum {
+    try std.testing.expectEqual(@as(u64, 0xaf63dc4c8601ec8c), try checksum("a"));
+    try std.testing.expectError(error.EmptyInput, checksum(""));
 }
 
-test "processData with empty input" {
-    var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var lib = try StarterLib.init(allocator);
-    defer lib.deinit();
-
-    const result = lib.processData("");
-    try std.testing.expectError(ProcessError.EmptyData, result);
-}
-
-test "validateInput" {
-    try StarterLib.validateInput("valid");
-    try std.testing.expectError(ProcessError.EmptyData, StarterLib.validateInput(""));
-
-    const large = "x" ** 2000;
-    try std.testing.expectError(ProcessError.DataTooLarge, StarterLib.validateInput(large));
+test "checksum differs for different inputs" {
+    try std.testing.expect(try checksum("hello") != try checksum("hellp"));
 }
