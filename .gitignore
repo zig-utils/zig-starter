@@ -2,6 +2,8 @@
 .zig-cache/
 zig-cache/
 zig-out/
+# Fetched Zig packages (zig fetch / build.zig.zon dependencies)
+zig-pkg/
 
 # Prebuilt libraries are produced by the release workflow, never committed
 prebuilt/
