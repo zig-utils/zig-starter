@@ -20,6 +20,8 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(init.arena.allocator());
     const out_path = if (args.len > 1) args[1] else "zig-out/bench.json";
 
+    if (std.fs.path.dirname(out_path)) |dir| try std.Io.Dir.cwd().createDirPath(init.io, dir);
+
     var prng = std.Random.DefaultPrng.init(42);
     prng.random().bytes(&input_1k);
     prng.random().bytes(&input_1m);
