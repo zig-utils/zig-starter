@@ -149,7 +149,7 @@ Describe how you tested the changes
 zig build
 
 # Release build
-zig build -Doptimize=ReleaseFast
+zig build -Doptimize=fast
 
 # Clean build
 rm -rf zig-cache zig-out && zig build
@@ -165,35 +165,18 @@ zig build test
 zig build test --verbose
 
 # Filter tests
-zig build test --test-filter "StarterLib"
+zig build test --test-filter "checksum"
 ```
 
 ## Adding Dependencies
 
-1. **Update package.jsonc**
+Add Zig dependencies as pantry registry tarballs with a hash, never as relative paths:
 
-   ```jsonc
-   {
-     "dependencies": {
-       "new-dep": "~/Code/new-dep"
-     }
-   }
-   ```
+```bash
+zig fetch --save https://registry.pantry.dev/zig/packages/<name>/<version>/tarball
+```
 
-2. **Install dependencies**
-
-   ```bash
-   pantry install
-   ```
-
-3. **Update build.zig**
-
-   ```zig
-   const new_dep_mod = b.addModule("new-dep", .{
-       .root_source_file = b.path("../new-dep/src/root.zig"),
-       .target = target,
-   });
-   ```
+Then import it in `build.zig` with `b.dependency("<name>", .{ .target = target, .optimize = optimize }).module("<module>")`.
 
 ## Documentation
 
@@ -225,23 +208,7 @@ pub fn processData(data: []const u8) Result([]u8, ProcessError) {
 
 ## Release Process
 
-1. **Update version**
-
-   ```bash
-   bump minor --changelog
-   ```
-
-2. **Review CHANGELOG.md**
-   - Ensure all changes are documented
-   - Edit if needed for clarity
-
-3. **Create release**
-   - Tag is created automatically by zig-bump
-   - Push to trigger CI/CD
-
-   ```bash
-   git push --follow-tags
-   ```
+`bun run release` (or `release:minor`, `release:major`) bumps the version, tags `vX.Y.Z` and pushes. The release workflow builds the prebuilt libraries and publishes to the pantry registry and npm. See [SETUP.md](SETUP.md#8-release).
 
 ## Getting Help
 

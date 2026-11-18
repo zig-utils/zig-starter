@@ -1,347 +1,70 @@
-# Zig Starter - Setup Guide
+# Starting a library from zig-starter
 
-This guide will help you set up and use the zig-starter template for your new projects.
+## 1. Create the repository
 
-## Project Status
-
-✅ **Ready to Use!** - The starter template is fully configured and tested with Zig 0.15.1
-
-## What's Included
-
-### Core Files
-
-- `build.zig` - Simple build configuration (no external dependencies required)
-- `build.zig.full` - Full build configuration with all dependencies
-- `build.zig.zon` - Zig package manifest
-- `package.jsonc` - Pantry package manager configuration
-- `src/main.zig` - Simple CLI entry point
-- `src/lib.zig` - Core library with tests
-- `src/main.full.zig` - Full-featured CLI (requires dependencies)
-- `src/lib.full.zig` - Full-featured library (requires dependencies)
-
-### Documentation
-
-- `README.md` - Complete usage guide
-- `CONTRIBUTING.md` - Contribution guidelines
-- `SETUP.md` - This file
-- `LICENSE` - MIT License
-
-## Quick Start (Simple Version)
-
-The template works out-of-the-box without any dependencies:
-
-```bash
-# Build the project
-zig build
-
-# Run the application
-zig build run
-
-# Run tests
-zig build test
+```sh
+git clone --depth 1 https://github.com/zig-utils/zig-starter.git zig-mylib
+cd zig-mylib
+rm -rf .git && git init -b main
+pantry install            # the pinned Zig and Bun from deps.yaml
 ```
 
-**Output:**
-
-```
-Zig Starter - Simple Version
-=============================
-
-Library initialized with max_retries = 3
+## 2. Rename
 
-Processing: "Hello, Zig!"
-Result: "Hello, Zig!"
-```
+| Where | Change |
+|---|---|
+| `build.zig` | `name` (`zig-starter`) becomes the library and executable name; the module name `starter` is what Zig importers write |
+| `build.zig.zon` | `.name`, `.version`, and run `zig build` once: it prints the new `.fingerprint` to paste in |
+| `include/zig_starter.h` | file name, include guard and the `starter_` symbol prefix |
+| `src/capi.zig` | the `starter_*_v1` export names |
+| `ts/index.ts` | `NAME` and the `symbols` table |
+| `package.json` | `name`, `description`, `repository` |
+| `.github/workflows/release.yml` | the library file names in the build list and the release asset names |
 
-## Full Version Setup (With All Dependencies)
+## 3. Write the library
 
-To use the full version with all the zig-utils libraries:
+- Put the Zig API in `src/lib.zig` (and the files it imports). Keep it free of global state.
+- Bound every input that can come from outside, as `max_input_len` does in the sample.
+- Add tests next to the code. `zig build test` runs every module listed in `build.zig`, so add new root files there.
 
-### Step 1: Install Pantry Package Manager
-
-If you haven't already, install Pantry:
-
-```bash
-cd ~/Code/pantry
-zig build -Doptimize=ReleaseFast
-sudo cp zig-out/bin/pantry /usr/local/bin/
-```
+## 4. Expose the C ABI
 
-### Step 2: Install Dependencies
+Each function in `src/capi.zig`:
+- takes pointers and lengths
+- returns a status enum
+- writes results through out-pointers
+- carries a `_vN` suffix
 
-```bash
-cd ~/Code/zig-starter
-pantry install
-```
+When a signature has to change, add `_v2` beside `_v1` and keep the old one working. Option structs begin with `size` so fields can be appended. Anything allocated here must be freed through a function exported from here.
 
-This will install:
+Mirror every export in the header, then extend `tests/c/smoke.c`.
 
-- `zig-cli` - Type-safe CLI framework
-- `zig-config` - Configuration management
-- `zig-error-handling` - Result type for functional error handling
-- `zig-test-framework` - Jest/Vitest-style testing framework
-- `zig-bump` - Version bumping and changelog generation
+## 5. Bind it for Bun
 
-### Step 3: Switch to Full Build
+Add each export to `symbols` in `ts/index.ts`, with a typed wrapper:
+- pass input `Uint8Array`s with `ptr()`, which copies nothing
+- reuse out-parameter buffers
+- turn non-zero statuses into errors
 
-```bash
-# Backup simple version
-mv build.zig build.zig.simple
-mv src/main.zig src/main.simple.zig
-mv src/lib.zig src/lib.simple.zig
+Keep JavaScript callbacks out of hot paths. `bun test ts` runs against `zig build lib` output.
 
-# Activate full version
-mv build.zig.full build.zig
-mv src/main.full.zig src/main.zig
-mv src/lib.full.zig src/lib.zig
-```
+## 6. Fuzz and benchmark
 
-### Step 4: Build and Run
+- Add a block per parser or entry point to `tools/fuzz.zig`. Run it with `zig build fuzz -Dfuzz-iterations=100000 -Dfuzz-seed=1`. The same seed always produces the same cases.
+- For coverage-guided fuzzing, add a `std.testing.fuzz` test and run `zig build test --fuzz`.
 
-```bash
-# Build
-zig build
+## 7. CPU variants (only for hot kernels)
 
-# Run with help
-zig build run -- --help
+`src/cpu.zig` detects the best variant at runtime. Compile the hot code once per variant (for example with `-Dcpu=x86_64_v3+sha`), dispatch on `cpu.detect()` at startup, and keep the CI variant matrix building each one.
 
-# Run config command
-zig build run -- config --show
+## 8. Release
 
-# Process a file (create a test file first)
-echo "test data" > input.txt
-zig build run -- process input.txt -o output.txt
-```
+1. Bump with `bun run release` (or `release:minor`, `release:major`). This tags `vX.Y.Z`.
+2. The release workflow then:
+   - builds the shared library for linux x64 and arm64 (glibc 2.17), darwin x64 and arm64, windows x64 and freebsd x64
+   - copies each into `prebuilt/<slug>/`
+   - checks that the binding loads the Linux build
+   - creates the GitHub release with checksums
+   - publishes to the pantry registry and to npm
 
-## Project Structure
-
-```
-zig-starter/
-├── build.zig              # Simple build (active)
-├── build.zig.full         # Full build with dependencies
-├── build.zig.zon          # Zig package manifest
-├── package.jsonc          # Pantry dependencies
-├── README.md              # Main documentation
-├── SETUP.md               # This file
-├── CONTRIBUTING.md        # Contribution guide
-├── LICENSE                # MIT license
-├── .gitignore             # Git ignore rules
-├── src/
-│   ├── main.zig          # Simple CLI (active)
-│   ├── lib.zig           # Simple library (active)
-│   ├── main.full.zig     # Full CLI with dependencies
-│   └── lib.full.zig      # Full library with dependencies
-└── zig-out/              # Build output (generated)
-    └── bin/
-        └── zig-starter   # Compiled executable
-```
-
-## Verification
-
-### Check Build
-
-```bash
-$ zig build
-# Should complete without errors
-```
-
-### Check Tests
-
-```bash
-$ zig build test
-# All tests passing
-```
-
-### Check Executable
-
-```bash
-$ zig build run
-Zig Starter - Simple Version
-=============================
-...
-```
-
-## Creating a New Project
-
-To use this template for a new project:
-
-```bash
-# Copy the template
-cp -r ~/Code/zig-starter ~/Code/my-new-project
-cd ~/Code/my-new-project
-
-# Clean build artifacts
-rm -rf zig-out zig-cache
-
-# Update package names
-# Edit build.zig.zon and change .name
-# Edit package.jsonc and change "name"
-
-# Initialize git (if needed)
-git init
-git add .
-git commit -m "Initial commit from zig-starter template"
-
-# Build and test
-zig build
-zig build test
-zig build run
-```
-
-## Customization Guide
-
-### 1. Change Project Name
-
-**build.zig.zon:**
-
-```zig
-.{
-    .name = .myproject,  // Change this
-    .version = "0.1.0",
-    .fingerprint = 0xYOURFINGERPRINT,  // Generate new: zig build
-    ...
-}
-```
-
-**package.jsonc:**
-
-```jsonc
-{
-  "name": "my-project",  // Change this
-  ...
-}
-```
-
-**build.zig:**
-
-```zig
-const exe = b.addExecutable(.{
-    .name = "my-project",  // Change this
-    ...
-});
-```
-
-### 2. Add New Dependencies
-
-**Edit package.jsonc:**
-
-```jsonc
-{
-  "dependencies": {
-    "existing-dep": "~/Code/existing-dep",
-    "new-dep": "~/Code/new-dep"  // Add this
-  }
-}
-```
-
-**Install:**
-
-```bash
-pantry install
-```
-
-**Update build.zig:**
-
-```zig
-const new_dep_mod = b.addModule("new-dep", .{
-    .root_source_file = b.path("../new-dep/src/root.zig"),
-    .target = target,
-});
-
-// Add to imports
-lib_mod.addImport("new-dep", new_dep_mod);
-```
-
-### 3. Add New Source Files
-
-```bash
-# Create new module
-touch src/mymodule.zig
-
-# Import in main.zig
-# const mymodule = @import("mymodule.zig")
-```
-
-## Version Management
-
-Using zig-bump (after installing dependencies):
-
-```bash
-# Bump patch version (0.1.0 → 0.1.1)
-bump patch --changelog
-
-# Bump minor version (0.1.0 → 0.2.0)
-bump minor --changelog
-
-# Bump major version (0.1.0 → 1.0.0)
-bump major --changelog
-```
-
-## Troubleshooting
-
-### Build Fails with "file not found"
-
-**Problem:** Dependencies not installed
-
-**Solution:**
-
-```bash
-pantry install
-# Or use simple version (build.zig.simple)
-```
-
-### Wrong Zig Version
-
-**Problem:** Requires Zig 0.15.1+
-
-**Solution:**
-
-```bash
-# Update Zig using pantry
-pantry install ziglang.org@0.15.1
-
-# Or download manually
-# https://ziglang.org/download/
-```
-
-### Module Not Found
-
-**Problem:** Incorrect path in build.zig
-
-**Solution:** Check relative paths match your dependency locations:
-
-```zig
-// Correct path to dependency
-.root_source_file = b.path("../zig-cli/src/root.zig"),
-```
-
-## Next Steps
-
-1. ✅ Verify the simple version works (`zig build run`)
-2. ✅ Read the README.md for detailed usage
-3. ⏭️ Install dependencies when ready (`pantry install`)
-4. ⏭️ Switch to full version for advanced features
-5. ⏭️ Customize for your project needs
-
-## Resources
-
-- [Zig Language Documentation](https://ziglang.org/documentation/master/)
-- [Pantry Package Manager](~/Code/pantry)
-- [zig-cli](~/Code/zig-cli)
-- [zig-config](~/Code/zig-config)
-- [zig-error-handling](~/Code/zig-error-handling)
-- [zig-test-framework](~/Code/zig-test-framework)
-- [zig-bump](~/Code/zig-bump)
-
-## Support
-
-If you encounter issues:
-
-1. Check this SETUP.md file
-2. Read README.md for usage examples
-3. Review CONTRIBUTING.md for development guidelines
-4. Check the source repositories for each dependency
-
----
-
-**Happy coding with Zig!** 🚀
+npm publishing uses trusted publishing (OIDC). An E404 on publish means authentication, not a missing package.
