@@ -5,24 +5,79 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v6
-
-      - name: Create Release
-        uses: stacksjs/action-releaser@v1.2.9
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to Pantry
-        uses: home-lang/pantry/packages/action@main
         with:
-          publish: zig
-          install: 'false'
+          fetch-depth: 0
+
+      # Installs pantry plus the pinned Zig and Bun from deps.yaml (pantry mirrors Zig dev builds).
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@fe21b9517e2da3f63c53069845f0b31965bc92d8
+        with:
+          version: 0.11.204
+
+      - name: Validate the tag against package.json
+        run: test "v$(bun -e "console.log((await Bun.file('package.json').json()).version)")" = "${GITHUB_REF_NAME}"
+
+      - name: Build prebuilt libraries for every platform
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          build() {
+            local target="$1" slug="$2" dir="$3" file="$4"
+            rm -rf zig-out
+            zig build lib -Doptimize=fast -Dtarget="$target"
+            mkdir -p "prebuilt/$slug"
+            cp "zig-out/$dir/$file" "prebuilt/$slug/"
+            tar -czf "dist/zig-starter-lib-$slug.tar.gz" -C "zig-out/$dir" "$file"
+          }
+          # Bun loads FFI libraries into a glibc process, so Linux targets glibc 2.17.
+          build x86_64-linux-gnu.2.17  linux-x64    lib libzig-starter.so
+          build aarch64-linux-gnu.2.17 linux-arm64  lib libzig-starter.so
+          build x86_64-macos           darwin-x64   lib libzig-starter.dylib
+          build aarch64-macos          darwin-arm64 lib libzig-starter.dylib
+          build x86_64-windows         windows-x64  bin zig-starter.dll
+          build x86_64-freebsd         freebsd-x64  lib libzig-starter.so
+          ls -R prebuilt
+
+      - name: The binding loads the packaged Linux library
+        run: |
+          rm -rf zig-out
+          bun test ts
+
+      - name: Create the GitHub release
+        uses: pantry-pm/pantry/packages/action@fe21b9517e2da3f63c53069845f0b31965bc92d8
+        with:
+          version: 0.11.204
+          install: false
+          release: true
+          release-tag: ${{ github.ref_name }}
+          release-changelog: auto
+          release-checksums: sha256
+          release-token: ${{ secrets.GITHUB_TOKEN }}
+          release-files: |
+            dist/zig-starter-lib-linux-x64.tar.gz
+            dist/zig-starter-lib-linux-arm64.tar.gz
+            dist/zig-starter-lib-darwin-x64.tar.gz
+            dist/zig-starter-lib-darwin-arm64.tar.gz
+            dist/zig-starter-lib-windows-x64.tar.gz
+            dist/zig-starter-lib-freebsd-x64.tar.gz
+
+      - name: Publish to the pantry registry
+        # Registry versions are immutable; a retry verifies the existing payload instead of failing.
+        run: pantry publish --verify-existing --ignore-scripts
         env:
+          PANTRY_REGISTRY_TOKEN: ${{ secrets.PANTRY_TOKEN }}
           PANTRY_TOKEN: ${{ secrets.PANTRY_TOKEN }}
+
+      - name: Publish to npm
+        # Trusted (OIDC) publishing first; NPM_TOKEN covers packages without that trust yet.
+        run: pantry publish --npm --access public --ignore-scripts
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
