@@ -77,6 +77,10 @@ jobs:
           PANTRY_TOKEN: ${{ secrets.PANTRY_TOKEN }}
 
       - name: Publish to npm
+        # Opt in per repository: set the NPM_PUBLISH repository variable to `true` once the npm
+        # package has trusted publishing configured (or an NPM_TOKEN secret for its first publish).
+        # The template itself is not published to npm.
+        if: ${{ vars.NPM_PUBLISH == 'true' }}
         # Trusted (OIDC) publishing first; NPM_TOKEN covers packages without that trust yet.
         run: pantry publish --npm --access public --ignore-scripts
         env:

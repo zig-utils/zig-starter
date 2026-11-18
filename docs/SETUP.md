@@ -68,4 +68,4 @@ Keep JavaScript callbacks out of hot paths. `bun test ts` runs against `zig buil
    - creates the GitHub release with checksums
    - publishes to the pantry registry and to npm
 
-npm publishing uses trusted publishing (OIDC). An E404 on publish means authentication, not a missing package.
+npm publishing is opt-in: set the `NPM_PUBLISH` repository variable to `true` after configuring trusted publishing (OIDC) for the package on npm, or add an `NPM_TOKEN` secret for its first publish. An E404 on publish means authentication, not a missing package.
