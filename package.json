@@ -1,7 +1,31 @@
 {
   "name": "zig-starter",
   "version": "0.1.1",
+  "description": "Template for Zig libraries that ship a C ABI, prebuilt shared libraries and a Bun binding",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zig-utils/zig-starter.git"
+  },
+  "type": "module",
+  "module": "ts/index.ts",
+  "exports": {
+    ".": "./ts/index.ts"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "build.zig",
+    "build.zig.zon",
+    "include",
+    "prebuilt",
+    "src",
+    "ts/index.ts"
+  ],
   "scripts": {
+    "build:lib": "zig build lib -Doptimize=fast",
+    "test": "zig build test && zig build lib && bun test ts",
+    "check:pin": "bun scripts/check-pin.ts",
     "release": "pantry release patch --yes",
     "release:minor": "pantry release minor --yes",
     "release:major": "pantry release major --yes"
