@@ -6,29 +6,72 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # The one pinned toolchain. build.zig.zon, deps.yaml and the README name the same build.
+  ZIG_VERSION: '0.17.0-dev.1857+3c46da14d'
+
 jobs:
+  pin:
+    name: Toolchain pin and repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun scripts/check-pin.ts
+      - name: No tracked executable binaries
+        run: |
+          bad=$(git ls-files -z | xargs -0 file --mime-type | grep -E 'application/(x-mach-binary|x-executable|x-pie-executable|x-sharedlib|x-dosexec)' || true)
+          if [ -n "$bad" ]; then echo "Tracked binaries:"; echo "$bad"; exit 1; fi
+
   test:
-    name: Test (${{ matrix.os }}, Zig ${{ matrix.zig-version }})
+    name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        zig-version: ['0.17.0-dev.56+a8226cd53']
       fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v6
       - uses: mlugg/setup-zig@v2
         with:
-          version: '0.17.0-dev.56+a8226cd53'
+          version: ${{ env.ZIG_VERSION }}
+      - uses: oven-sh/setup-bun@v2
       - run: zig build
-      - run: zig build test
+      - run: zig build test --summary all
+      - run: zig build test -Doptimize=safe
+      - run: zig build fuzz -Dfuzz-iterations=20000
+      - run: zig build lib -Doptimize=fast
+      - run: bun test ts
 
-  lint:
-    name: Format Check
+  variants:
+    name: CPU variant ${{ matrix.cpu }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, cpu: baseline, target: x86_64-linux, mcpu: baseline }
+          - { runner: ubuntu-latest, cpu: x86-64-v2, target: x86_64-linux, mcpu: x86_64_v2 }
+          - { runner: ubuntu-latest, cpu: x86-64-v3, target: x86_64-linux, mcpu: x86_64_v3 }
+          - { runner: ubuntu-latest, cpu: x86-64-v3+sha, target: x86_64-linux, mcpu: x86_64_v3+sha }
+          - { runner: ubuntu-24.04-arm, cpu: aarch64+crypto, target: aarch64-linux, mcpu: generic+aes+sha2 }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: zig build lib -Dtarget=${{ matrix.target }} -Dcpu=${{ matrix.mcpu }} -Doptimize=fast
+      - name: Run tests where the runner supports the variant
+        run: |
+          if [ "${{ matrix.cpu }}" = "x86-64-v3+sha" ] && ! grep -q ' sha_ni ' /proc/cpuinfo; then echo "runner lacks SHA-NI: built only"; exit 0; fi
+          zig build test -Dtarget=${{ matrix.target }} -Dcpu=${{ matrix.mcpu }}
+
+  fmt:
+    name: Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: mlugg/setup-zig@v2
         with:
-          version: '0.17.0-dev.56+a8226cd53'
-      - run: zig fmt --check .
+          version: ${{ env.ZIG_VERSION }}
+      - run: zig fmt --check build.zig build.zig.zon src tools
