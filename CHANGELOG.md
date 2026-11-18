@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1 - 2026-11-17
+
+- chore: ignore the zig-pkg package cache (25135c7)
+- ci: install pantry 0.11.212 in the release job (2285cda)
+
 ## v0.2.0 - 2026-11-17
 
 - ci: make npm publishing opt-in per repository (92c62a3)
