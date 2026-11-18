@@ -13,7 +13,13 @@
     //   },
     //
     // `zig fetch --save <url>` writes the entry and its hash for you.
-    .dependencies = .{},
+    .dependencies = .{
+        .bench = .{
+            .lazy = true,
+            .url = "https://registry.pantry.dev/zig/packages/zig-bench/0.2.1/tarball",
+            .hash = "zig_bench-0.2.1-FoCM--g7AwBKI7pKOE_UBYMOONDqfGQr-pR8nTpwf7vw",
+        },
+    },
 
     .paths = .{
         "build.zig",

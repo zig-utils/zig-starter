@@ -52,6 +52,7 @@ Keep JavaScript callbacks out of hot paths. `bun test ts` runs against `zig buil
 
 - Add a block per parser or entry point to `tools/fuzz.zig`. Run it with `zig build fuzz -Dfuzz-iterations=100000 -Dfuzz-seed=1`. The same seed always produces the same cases.
 - For coverage-guided fuzzing, add a `std.testing.fuzz` test and run `zig build test --fuzz`.
+- Add benchmarks to `bench/main.zig` (zig-bench, a lazy dependency fetched only by this step). `zig build bench -- out.json` writes the results; CI uploads them as an artifact.
 
 ## 7. CPU variants (only for hot kernels)
 

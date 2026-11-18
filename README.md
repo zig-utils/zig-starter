@@ -27,6 +27,7 @@ zig build test                  # every Zig module plus the C smoke test
 zig build test -Doptimize=safe  # the same with ReleaseSafe
 zig build lib -Doptimize=fast   # zig-out/lib: static + shared library, zig-out/include: header
 zig build fuzz -Dfuzz-iterations=100000 -Dfuzz-seed=1
+zig build bench -- zig-out/bench.json   # zig-bench benchmarks, JSON results
 bun test ts                     # the Bun binding against zig-out
 bun scripts/check-pin.ts        # the Zig pin agrees across zon, deps.yaml, CI and this README
 ```

@@ -1,0 +1,128 @@
+//! Export module - Export benchmark results to various formats
+//!
+//! Supports:
+//! - JSON format with timestamps
+//! - CSV format for spreadsheet analysis
+
+const std = @import("std");
+const bench = @import("bench");
+const Allocator = std.mem.Allocator;
+const Io = std.Io;
+const BenchmarkResult = bench.BenchmarkResult;
+
+/// Supported export formats
+pub const ExportFormat = enum {
+    json, // JSON format with timestamp and benchmarks array
+    csv, // CSV format with header row
+};
+
+/// Exporter for benchmark results
+pub const Exporter = struct {
+    allocator: Allocator,
+    io: Io,
+
+    /// Initialize a new exporter
+    pub fn init(allocator: Allocator, io: Io) Exporter {
+        return .{ .allocator = allocator, .io = io };
+    }
+
+    /// Export benchmark results to a file in the specified format
+    /// Creates a new file or overwrites existing file at path
+    pub fn exportToFile(self: Exporter, results: []const BenchmarkResult, path: []const u8, format: ExportFormat) !void {
+        const file = try Io.Dir.cwd().createFile(self.io, path, .{});
+        defer file.close(self.io);
+        var file_buf: [4096]u8 = undefined;
+        var file_writer = file.writer(self.io, &file_buf);
+        const w = &file_writer.interface;
+
+        switch (format) {
+            .json => try self.writeJson(w, results),
+            .csv => try self.writeCsv(w, results),
+        }
+
+        try w.flush();
+    }
+
+    /// Write results in JSON format with timestamp
+    fn writeJson(self: Exporter, w: *Io.Writer, results: []const BenchmarkResult) !void {
+        try w.writeAll("{\n");
+        try w.writeAll("  \"timestamp\": \"");
+
+        // Write current timestamp
+        const timestamp = bench.clock.timestamp(self.io);
+        var buf: [128]u8 = undefined;
+        const ts_str = try std.fmt.bufPrint(&buf, "{d}", .{timestamp});
+        try w.writeAll(ts_str);
+        try w.writeAll("\",\n");
+
+        try w.writeAll("  \"benchmarks\": [\n");
+
+        for (results, 0..) |result, i| {
+            try w.writeAll("    {\n");
+
+            const name_line = try std.fmt.bufPrint(&buf, "      \"name\": \"{s}\",\n", .{result.name});
+            try w.writeAll(name_line);
+
+            const mean_line = try std.fmt.bufPrint(&buf, "      \"mean_ns\": {d:.2},\n", .{result.mean});
+            try w.writeAll(mean_line);
+
+            const stddev_line = try std.fmt.bufPrint(&buf, "      \"stddev_ns\": {d:.2},\n", .{result.stddev});
+            try w.writeAll(stddev_line);
+
+            const min_line = try std.fmt.bufPrint(&buf, "      \"min_ns\": {d},\n", .{result.min});
+            try w.writeAll(min_line);
+
+            const max_line = try std.fmt.bufPrint(&buf, "      \"max_ns\": {d},\n", .{result.max});
+            try w.writeAll(max_line);
+
+            const p50_line = try std.fmt.bufPrint(&buf, "      \"p50_ns\": {d},\n", .{result.p50});
+            try w.writeAll(p50_line);
+
+            const p75_line = try std.fmt.bufPrint(&buf, "      \"p75_ns\": {d},\n", .{result.p75});
+            try w.writeAll(p75_line);
+
+            const p99_line = try std.fmt.bufPrint(&buf, "      \"p99_ns\": {d},\n", .{result.p99});
+            try w.writeAll(p99_line);
+
+            const ops_line = try std.fmt.bufPrint(&buf, "      \"ops_per_sec\": {d:.2},\n", .{result.ops_per_sec});
+            try w.writeAll(ops_line);
+
+            const iter_line = try std.fmt.bufPrint(&buf, "      \"iterations\": {d}\n", .{result.iterations});
+            try w.writeAll(iter_line);
+
+            if (i < results.len - 1) {
+                try w.writeAll("    },\n");
+            } else {
+                try w.writeAll("    }\n");
+            }
+        }
+
+        try w.writeAll("  ]\n");
+        try w.writeAll("}\n");
+    }
+
+    fn writeCsv(self: Exporter, w: *Io.Writer, results: []const BenchmarkResult) !void {
+        _ = self;
+
+        // Write header
+        try w.writeAll("name,mean_ns,stddev_ns,min_ns,max_ns,p50_ns,p75_ns,p99_ns,ops_per_sec,iterations\n");
+
+        // Write data rows
+        var buf: [512]u8 = undefined;
+        for (results) |result| {
+            const line = try std.fmt.bufPrint(&buf, "{s},{d:.2},{d:.2},{d},{d},{d},{d},{d},{d:.2},{d}\n", .{
+                result.name,
+                result.mean,
+                result.stddev,
+                result.min,
+                result.max,
+                result.p50,
+                result.p75,
+                result.p99,
+                result.ops_per_sec,
+                result.iterations,
+            });
+            try w.writeAll(line);
+        }
+    }
+};

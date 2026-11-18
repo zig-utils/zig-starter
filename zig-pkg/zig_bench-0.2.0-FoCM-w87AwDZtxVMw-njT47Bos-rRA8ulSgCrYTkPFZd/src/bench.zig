@@ -1,0 +1,954 @@
+//! Zig Bench - A modern, performant benchmark framework for Zig
+//!
+//! This module provides a comprehensive benchmarking framework with:
+//! - High-precision monotonic timing via std.Io clocks (see clock.zig)
+//! - Statistical analysis (mean, stddev, percentiles)
+//! - Beautiful CLI output with colors
+//! - Flexible configuration options
+//! - Support for async/error-handling functions
+//! - Baseline comparison and filtering
+//! - Custom allocator support
+
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+const Io = std.Io;
+
+/// Clock helpers (monotonic `Timer`, wall-clock timestamps) built on `std.Io`.
+pub const clock = @import("clock.zig");
+pub const Timer = clock.Timer;
+
+/// Configuration options for individual benchmarks
+pub const BenchmarkOptions = struct {
+    /// Number of warmup iterations to run before measuring (default: 5)
+    /// Warmup helps stabilize CPU caches and frequency scaling
+    warmup_iterations: u32 = 5,
+
+    /// Minimum number of iterations to execute (default: 10)
+    /// Ensures enough samples for statistical analysis
+    min_iterations: u32 = 10,
+
+    /// Maximum number of iterations to execute (default: 10,000)
+    /// Prevents extremely fast operations from running too long
+    max_iterations: u32 = 10_000,
+
+    /// Minimum time to run benchmarks in nanoseconds (default: 1 second)
+    /// Benchmarks continue until this time elapses AND min_iterations are met
+    min_time_ns: u64 = 1_000_000_000,
+
+    /// Optional baseline file path for comparison (reserved for future use)
+    baseline: ?[]const u8 = null,
+
+    /// Optional filter pattern to match benchmark names
+    /// Only benchmarks matching this substring will run
+    filter: ?[]const u8 = null,
+};
+
+/// Results from a benchmark run, containing timing samples and statistical analysis
+pub const BenchmarkResult = struct {
+    /// Name of the benchmark
+    name: []const u8,
+
+    /// Raw timing samples in nanoseconds
+    samples: std.ArrayList(u64),
+
+    /// Allocator used for samples
+    allocator: Allocator,
+
+    /// Mean (average) execution time in nanoseconds
+    mean: f64,
+
+    /// Standard deviation of execution times
+    stddev: f64,
+
+    /// Minimum execution time in nanoseconds
+    min: u64,
+
+    /// Maximum execution time in nanoseconds
+    max: u64,
+
+    /// 50th percentile (median) in nanoseconds
+    p50: u64,
+
+    /// 75th percentile in nanoseconds
+    p75: u64,
+
+    /// 99th percentile in nanoseconds
+    p99: u64,
+
+    /// Operations per second (1e9 / mean)
+    ops_per_sec: f64,
+
+    /// Total number of iterations executed
+    iterations: u64,
+
+    /// Free the samples ArrayList
+    pub fn deinit(self: *BenchmarkResult) void {
+        self.samples.deinit(self.allocator);
+    }
+
+    /// Export this result as a JSON string (legacy format)
+    /// Note: Use the export module for more advanced export features
+    pub fn toJson(self: *const BenchmarkResult, allocator: Allocator) ![]u8 {
+        var string = std.ArrayList(u8).empty;
+        defer string.deinit(allocator);
+
+        try string.print(allocator, "{{\"name\":\"{s}\",\"mean\":{d:.2},\"stddev\":{d:.2},\"min\":{d},\"max\":{d},\"p50\":{d},\"p75\":{d},\"p99\":{d},\"ops_per_sec\":{d:.2},\"iterations\":{d}}}", .{
+            self.name,
+            self.mean,
+            self.stddev,
+            self.min,
+            self.max,
+            self.p50,
+            self.p75,
+            self.p99,
+            self.ops_per_sec,
+            self.iterations,
+        });
+
+        return string.toOwnedSlice(allocator);
+    }
+};
+
+/// Statistical analysis functions for benchmark samples
+pub const Stats = struct {
+    /// Calculate the arithmetic mean (average) of samples
+    /// Returns 0.0 for empty samples
+    pub fn mean(samples: []const u64) f64 {
+        if (samples.len == 0) return 0.0;
+        var sum: f64 = 0.0;
+        for (samples) |sample| {
+            sum += @as(f64, @floatFromInt(sample));
+        }
+        return sum / @as(f64, @floatFromInt(samples.len));
+    }
+
+    /// Calculate the standard deviation using Bessel's correction (n-1)
+    /// Returns 0.0 for samples with length <= 1
+    pub fn stddev(samples: []const u64, mean_val: f64) f64 {
+        if (samples.len <= 1) return 0.0;
+        var variance: f64 = 0.0;
+        for (samples) |sample| {
+            const diff = @as(f64, @floatFromInt(sample)) - mean_val;
+            variance += diff * diff;
+        }
+        return @sqrt(variance / @as(f64, @floatFromInt(samples.len - 1)));
+    }
+
+    /// Calculate a percentile value (p should be between 0.0 and 1.0)
+    /// Note: This sorts the samples array in-place
+    /// Examples: p=0.5 for median (P50), p=0.99 for P99
+    pub fn percentile(samples: []u64, p: f64) u64 {
+        if (samples.len == 0) return 0;
+        std.mem.sort(u64, samples, {}, std.sort.asc(u64));
+        const index = @as(usize, @intFromFloat(@as(f64, @floatFromInt(samples.len)) * p));
+        return samples[@min(index, samples.len - 1)];
+    }
+
+    /// Find the minimum value in samples
+    /// Returns 0 for empty samples
+    pub fn min(samples: []const u64) u64 {
+        if (samples.len == 0) return 0;
+        var min_val = samples[0];
+        for (samples[1..]) |sample| {
+            if (sample < min_val) min_val = sample;
+        }
+        return min_val;
+    }
+
+    /// Find the maximum value in samples
+    /// Returns 0 for empty samples
+    pub fn max(samples: []const u64) u64 {
+        if (samples.len == 0) return 0;
+        var max_val = samples[0];
+        for (samples[1..]) |sample| {
+            if (sample > max_val) max_val = sample;
+        }
+        return max_val;
+    }
+};
+
+pub const Benchmark = struct {
+    name: []const u8,
+    func: *const fn () void,
+    opts: BenchmarkOptions,
+    allocator_func: ?*const fn (Allocator) void = null,
+
+    pub fn init(name: []const u8, func: *const fn () void) Benchmark {
+        return .{
+            .name = name,
+            .func = func,
+            .opts = .{},
+        };
+    }
+
+    pub fn withOptions(name: []const u8, func: *const fn () void, opts: BenchmarkOptions) Benchmark {
+        return .{
+            .name = name,
+            .func = func,
+            .opts = opts,
+        };
+    }
+
+    pub fn withAllocator(name: []const u8, func: *const fn (Allocator) void) Benchmark {
+        return .{
+            .name = name,
+            .func = undefined,
+            .opts = .{},
+            .allocator_func = func,
+        };
+    }
+
+    pub fn withAllocatorAndOptions(name: []const u8, func: *const fn (Allocator) void, opts: BenchmarkOptions) Benchmark {
+        return .{
+            .name = name,
+            .func = undefined,
+            .opts = opts,
+            .allocator_func = func,
+        };
+    }
+
+    pub fn run(self: *const Benchmark, allocator: Allocator, io: Io) !BenchmarkResult {
+        var samples = std.ArrayList(u64).empty;
+        errdefer samples.deinit(allocator);
+
+        const is_allocator_func = self.allocator_func != null;
+
+        // Warmup phase
+        var i: u32 = 0;
+        while (i < self.opts.warmup_iterations) : (i += 1) {
+            if (is_allocator_func) {
+                self.allocator_func.?(allocator);
+            } else {
+                self.func();
+            }
+        }
+
+        // Benchmark phase
+        var timer = Timer.start(io);
+        var total_time: u64 = 0;
+        var iterations: u64 = 0;
+
+        while (iterations < self.opts.max_iterations and total_time < self.opts.min_time_ns) {
+            timer.reset();
+            if (is_allocator_func) {
+                self.allocator_func.?(allocator);
+            } else {
+                self.func();
+            }
+            const elapsed = timer.read();
+            try samples.append(allocator, elapsed);
+            total_time += elapsed;
+            iterations += 1;
+
+            // Ensure we run at least min_iterations
+            if (iterations < self.opts.min_iterations) {
+                continue;
+            }
+        }
+
+        // Calculate statistics
+        const mean_val = Stats.mean(samples.items);
+        const stddev_val = Stats.stddev(samples.items, mean_val);
+
+        // Create a copy for percentile calculations (they sort in-place)
+        var samples_copy = try samples.clone(allocator);
+        defer samples_copy.deinit(allocator);
+
+        const p50 = Stats.percentile(samples_copy.items, 0.50);
+        const p75 = Stats.percentile(samples_copy.items, 0.75);
+        const p99 = Stats.percentile(samples_copy.items, 0.99);
+
+        const min_val = Stats.min(samples.items);
+        const max_val = Stats.max(samples.items);
+
+        // Calculate operations per second
+        const ops_per_sec = if (mean_val > 0) 1_000_000_000.0 / mean_val else 0.0;
+
+        return BenchmarkResult{
+            .name = self.name,
+            .samples = samples,
+            .allocator = allocator,
+            .mean = mean_val,
+            .stddev = stddev_val,
+            .min = min_val,
+            .max = max_val,
+            .p50 = p50,
+            .p75 = p75,
+            .p99 = p99,
+            .ops_per_sec = ops_per_sec,
+            .iterations = iterations,
+        };
+    }
+};
+
+/// A suite of benchmarks to run together
+/// Manages multiple benchmarks and provides comparison features
+pub const BenchmarkSuite = struct {
+    /// List of benchmarks to run
+    benchmarks: std.ArrayList(Benchmark),
+
+    /// Allocator for managing benchmarks
+    allocator: Allocator,
+
+    /// I/O implementation used for clocks, stdout and baseline files
+    io: Io,
+
+    /// Optional filter pattern - only benchmarks matching this substring will run
+    filter: ?[]const u8 = null,
+
+    /// Optional baseline file path for saving results
+    baseline_path: ?[]const u8 = null,
+
+    /// Initialize a new benchmark suite
+    pub fn init(allocator: Allocator, io: Io) BenchmarkSuite {
+        return .{
+            .benchmarks = std.ArrayList(Benchmark).empty,
+            .allocator = allocator,
+            .io = io,
+        };
+    }
+
+    /// Clean up the suite and free resources
+    pub fn deinit(self: *BenchmarkSuite) void {
+        self.benchmarks.deinit(self.allocator);
+    }
+
+    /// Add a simple benchmark function to the suite
+    /// The function should take no arguments and return void
+    pub fn add(self: *BenchmarkSuite, name: []const u8, func: *const fn () void) !void {
+        try self.benchmarks.append(self.allocator, Benchmark.init(name, func));
+    }
+
+    /// Add a benchmark with custom options (warmup, iterations, timing)
+    pub fn addWithOptions(self: *BenchmarkSuite, name: []const u8, func: *const fn () void, opts: BenchmarkOptions) !void {
+        try self.benchmarks.append(self.allocator, Benchmark.withOptions(name, func, opts));
+    }
+
+    /// Add a benchmark that requires an allocator parameter
+    /// Useful for testing allocation-heavy operations
+    pub fn addWithAllocator(self: *BenchmarkSuite, name: []const u8, func: *const fn (Allocator) void) !void {
+        try self.benchmarks.append(self.allocator, Benchmark.withAllocator(name, func));
+    }
+
+    /// Add a benchmark with both custom allocator and options
+    pub fn addWithAllocatorAndOptions(self: *BenchmarkSuite, name: []const u8, func: *const fn (Allocator) void, opts: BenchmarkOptions) !void {
+        try self.benchmarks.append(self.allocator, Benchmark.withAllocatorAndOptions(name, func, opts));
+    }
+
+    pub fn setFilter(self: *BenchmarkSuite, filter: []const u8) void {
+        self.filter = filter;
+    }
+
+    pub fn setBaseline(self: *BenchmarkSuite, path: []const u8) void {
+        self.baseline_path = path;
+    }
+
+    pub fn matchesFilter(self: *const BenchmarkSuite, name: []const u8) bool {
+        if (self.filter == null) return true;
+        // Simple substring match for now
+        return std.mem.indexOf(u8, name, self.filter.?) != null;
+    }
+
+    pub fn saveBaseline(self: *BenchmarkSuite, results: []const BenchmarkResult, path: []const u8) !void {
+        try writeBaseline(self.allocator, self.io, results, path);
+    }
+
+    pub fn run(self: *BenchmarkSuite) !void {
+        var stdout_buf: [4096]u8 = undefined;
+        var stdout_writer = Io.File.stdout().writerStreaming(self.io, &stdout_buf);
+        const stdout = &stdout_writer.interface;
+        const formatter = Formatter{};
+
+        try formatter.printHeader(stdout);
+
+        var results = std.ArrayList(BenchmarkResult).empty;
+        defer {
+            for (results.items) |*result| {
+                result.deinit();
+            }
+            results.deinit(self.allocator);
+        }
+
+        for (self.benchmarks.items) |*benchmark| {
+            // Skip if doesn't match filter
+            if (!self.matchesFilter(benchmark.name)) {
+                continue;
+            }
+
+            try formatter.printBenchmarkStart(stdout, benchmark.name);
+            try stdout.flush();
+            const result = try benchmark.run(self.allocator, self.io);
+            try results.append(self.allocator, result);
+            try formatter.printResult(stdout, &result);
+        }
+
+        if (results.items.len > 0) {
+            try formatter.printSummary(stdout, results.items);
+
+            // Save baseline if path is set
+            if (self.baseline_path) |path| {
+                try self.saveBaseline(results.items, path);
+                try stdout.print("\n{s}Baseline saved to: {s}{s}\n", .{ Formatter.DIM, path, Formatter.RESET });
+            }
+        }
+        try stdout.flush();
+    }
+};
+
+/// Write results as a JSON array (one `BenchmarkResult.toJson` object per line).
+fn writeBaseline(allocator: Allocator, io: Io, results: []const BenchmarkResult, path: []const u8) !void {
+    const file = try Io.Dir.cwd().createFile(io, path, .{});
+    defer file.close(io);
+
+    var file_buf: [4096]u8 = undefined;
+    var file_writer = file.writer(io, &file_buf);
+    const w = &file_writer.interface;
+
+    try w.writeAll("[\n");
+    for (results, 0..) |result, i| {
+        const json = try result.toJson(allocator);
+        defer allocator.free(json);
+        try w.writeAll("  ");
+        try w.writeAll(json);
+        if (i < results.len - 1) {
+            try w.writeAll(",\n");
+        } else {
+            try w.writeAll("\n");
+        }
+    }
+    try w.writeAll("]\n");
+    try w.flush();
+}
+
+/// Formatter for beautiful CLI output with ANSI colors and formatting
+pub const Formatter = struct {
+    // ANSI color codes for terminal output
+    pub const RESET = "\x1b[0m"; // Reset all attributes
+    pub const BOLD = "\x1b[1m"; // Bold text
+    pub const DIM = "\x1b[2m"; // Dimmed text
+    pub const CYAN = "\x1b[36m"; // Cyan color
+    pub const GREEN = "\x1b[32m"; // Green color (used for success/fast)
+    pub const YELLOW = "\x1b[33m"; // Yellow color (used for warnings/comparisons)
+    pub const BLUE = "\x1b[34m"; // Blue color (used for info)
+    pub const MAGENTA = "\x1b[35m"; // Magenta color
+
+    /// Print the benchmark suite header
+    pub fn printHeader(self: Formatter, w: *Io.Writer) !void {
+        _ = self;
+        try w.print("\n{s}{s}Zig Benchmark Suite{s}\n", .{ BOLD, CYAN, RESET });
+        try w.print("{s}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{s}\n\n", .{ DIM, RESET });
+    }
+
+    pub fn printBenchmarkStart(self: Formatter, w: *Io.Writer, name: []const u8) !void {
+        _ = self;
+        try w.print("{s}▶{s} Running: {s}{s}{s}\n", .{ BLUE, RESET, BOLD, name, RESET });
+    }
+
+    pub fn printResult(self: Formatter, w: *Io.Writer, result: *const BenchmarkResult) !void {
+        _ = self;
+        try w.print("  {s}Iterations:{s} {d}\n", .{ DIM, RESET, result.iterations });
+        try w.print("  {s}Mean:{s}       {s}{s}{s}\n", .{ DIM, RESET, GREEN, formatTime(result.mean).slice(), RESET });
+        try w.print("  {s}Std Dev:{s}    {s}\n", .{ DIM, RESET, formatTime(result.stddev).slice() });
+        try w.print("  {s}Min:{s}        {s}\n", .{ DIM, RESET, formatTime(@floatFromInt(result.min)).slice() });
+        try w.print("  {s}Max:{s}        {s}\n", .{ DIM, RESET, formatTime(@floatFromInt(result.max)).slice() });
+        try w.print("  {s}P50:{s}        {s}\n", .{ DIM, RESET, formatTime(@floatFromInt(result.p50)).slice() });
+        try w.print("  {s}P75:{s}        {s}\n", .{ DIM, RESET, formatTime(@floatFromInt(result.p75)).slice() });
+        try w.print("  {s}P99:{s}        {s}\n", .{ DIM, RESET, formatTime(@floatFromInt(result.p99)).slice() });
+        try w.print("  {s}Ops/sec:{s}    {s}{s}{s}\n\n", .{ DIM, RESET, MAGENTA, formatOps(result.ops_per_sec).slice(), RESET });
+    }
+
+    pub fn printSummary(self: Formatter, w: *Io.Writer, results: []const BenchmarkResult) !void {
+        _ = self;
+        if (results.len == 0) return;
+
+        try w.print("{s}{s}Summary{s}\n", .{ BOLD, CYAN, RESET });
+        try w.print("{s}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{s}\n", .{ DIM, RESET });
+
+        // Find the fastest benchmark
+        var fastest_idx: usize = 0;
+        var fastest_mean = results[0].mean;
+        for (results, 0..) |result, i| {
+            if (result.mean < fastest_mean) {
+                fastest_mean = result.mean;
+                fastest_idx = i;
+            }
+        }
+
+        for (results, 0..) |result, i| {
+            const is_fastest = i == fastest_idx;
+            const relative = result.mean / fastest_mean;
+
+            if (is_fastest) {
+                try w.print("  {s}✓{s} {s}{s}{s} - {s}fastest{s}\n", .{
+                    GREEN,
+                    RESET,
+                    BOLD,
+                    result.name,
+                    RESET,
+                    GREEN,
+                    RESET,
+                });
+            } else {
+                try w.print("  {s}•{s} {s} - {s}{d:.2}x{s} slower\n", .{
+                    YELLOW,
+                    RESET,
+                    result.name,
+                    YELLOW,
+                    relative,
+                    RESET,
+                });
+            }
+        }
+        try w.writeAll("\n");
+    }
+
+    const FormattedValue = struct {
+        buf: [64]u8,
+        len: usize,
+
+        pub fn slice(self: *const FormattedValue) []const u8 {
+            return self.buf[0..self.len];
+        }
+    };
+
+    fn formatTime(ns: f64) FormattedValue {
+        var result: FormattedValue = .{ .buf = undefined, .len = 0 };
+        const formatted = if (ns < 1_000)
+            std.fmt.bufPrint(&result.buf, "{d:.2} ns", .{ns}) catch unreachable
+        else if (ns < 1_000_000)
+            std.fmt.bufPrint(&result.buf, "{d:.2} µs", .{ns / 1_000}) catch unreachable
+        else if (ns < 1_000_000_000)
+            std.fmt.bufPrint(&result.buf, "{d:.2} ms", .{ns / 1_000_000}) catch unreachable
+        else
+            std.fmt.bufPrint(&result.buf, "{d:.2} s", .{ns / 1_000_000_000}) catch unreachable;
+
+        result.len = formatted.len;
+        return result;
+    }
+
+    fn formatOps(ops: f64) FormattedValue {
+        var result: FormattedValue = .{ .buf = undefined, .len = 0 };
+        const formatted = if (ops < 1_000)
+            std.fmt.bufPrint(&result.buf, "{d:.2}", .{ops}) catch unreachable
+        else if (ops < 1_000_000)
+            std.fmt.bufPrint(&result.buf, "{d:.2}k", .{ops / 1_000}) catch unreachable
+        else if (ops < 1_000_000_000)
+            std.fmt.bufPrint(&result.buf, "{d:.2}M", .{ops / 1_000_000}) catch unreachable
+        else
+            std.fmt.bufPrint(&result.buf, "{d:.2}B", .{ops / 1_000_000_000}) catch unreachable;
+
+        result.len = formatted.len;
+        return result;
+    }
+};
+
+// Convenience functions for quick benchmarking
+pub fn bench(io: Io, name: []const u8, func: *const fn () void) !void {
+    const allocator = std.heap.page_allocator;
+    var suite = BenchmarkSuite.init(allocator, io);
+    defer suite.deinit();
+
+    try suite.add(name, func);
+    try suite.run();
+}
+
+pub fn benchWithOptions(io: Io, name: []const u8, func: *const fn () void, opts: BenchmarkOptions) !void {
+    const allocator = std.heap.page_allocator;
+    var suite = BenchmarkSuite.init(allocator, io);
+    defer suite.deinit();
+
+    try suite.addWithOptions(name, func, opts);
+    try suite.run();
+}
+
+// Async Benchmark Support
+pub const AsyncBenchmark = struct {
+    name: []const u8,
+    func: *const fn () anyerror!void,
+    opts: BenchmarkOptions,
+
+    pub fn init(name: []const u8, func: *const fn () anyerror!void) AsyncBenchmark {
+        return .{
+            .name = name,
+            .func = func,
+            .opts = .{},
+        };
+    }
+
+    pub fn withOptions(name: []const u8, func: *const fn () anyerror!void, opts: BenchmarkOptions) AsyncBenchmark {
+        return .{
+            .name = name,
+            .func = func,
+            .opts = opts,
+        };
+    }
+
+    pub fn run(self: *const AsyncBenchmark, allocator: Allocator, io: Io) !BenchmarkResult {
+        var samples = std.ArrayList(u64).empty;
+        errdefer samples.deinit(allocator);
+
+        // Warmup phase
+        var i: u32 = 0;
+        while (i < self.opts.warmup_iterations) : (i += 1) {
+            try self.func();
+        }
+
+        // Benchmark phase
+        var timer = Timer.start(io);
+        var total_time: u64 = 0;
+        var iterations: u64 = 0;
+
+        while (iterations < self.opts.max_iterations and total_time < self.opts.min_time_ns) {
+            timer.reset();
+            try self.func();
+            const elapsed = timer.read();
+            try samples.append(allocator, elapsed);
+            total_time += elapsed;
+            iterations += 1;
+
+            if (iterations < self.opts.min_iterations) {
+                continue;
+            }
+        }
+
+        // Calculate statistics
+        const mean_val = Stats.mean(samples.items);
+        const stddev_val = Stats.stddev(samples.items, mean_val);
+
+        var samples_copy = try samples.clone(allocator);
+        defer samples_copy.deinit(allocator);
+
+        const p50 = Stats.percentile(samples_copy.items, 0.50);
+        const p75 = Stats.percentile(samples_copy.items, 0.75);
+        const p99 = Stats.percentile(samples_copy.items, 0.99);
+
+        const min_val = Stats.min(samples.items);
+        const max_val = Stats.max(samples.items);
+
+        const ops_per_sec = if (mean_val > 0) 1_000_000_000.0 / mean_val else 0.0;
+
+        return BenchmarkResult{
+            .name = self.name,
+            .samples = samples,
+            .allocator = allocator,
+            .mean = mean_val,
+            .stddev = stddev_val,
+            .min = min_val,
+            .max = max_val,
+            .p50 = p50,
+            .p75 = p75,
+            .p99 = p99,
+            .ops_per_sec = ops_per_sec,
+            .iterations = iterations,
+        };
+    }
+};
+
+pub const AsyncBenchmarkSuite = struct {
+    benchmarks: std.ArrayList(AsyncBenchmark),
+    allocator: Allocator,
+    io: Io,
+    filter: ?[]const u8 = null,
+    baseline_path: ?[]const u8 = null,
+
+    pub fn init(allocator: Allocator, io: Io) AsyncBenchmarkSuite {
+        return .{
+            .benchmarks = std.ArrayList(AsyncBenchmark).empty,
+            .allocator = allocator,
+            .io = io,
+        };
+    }
+
+    pub fn deinit(self: *AsyncBenchmarkSuite) void {
+        self.benchmarks.deinit(self.allocator);
+    }
+
+    pub fn add(self: *AsyncBenchmarkSuite, name: []const u8, func: *const fn () anyerror!void) !void {
+        try self.benchmarks.append(self.allocator, AsyncBenchmark.init(name, func));
+    }
+
+    pub fn addWithOptions(self: *AsyncBenchmarkSuite, name: []const u8, func: *const fn () anyerror!void, opts: BenchmarkOptions) !void {
+        try self.benchmarks.append(self.allocator, AsyncBenchmark.withOptions(name, func, opts));
+    }
+
+    pub fn setFilter(self: *AsyncBenchmarkSuite, filter: []const u8) void {
+        self.filter = filter;
+    }
+
+    pub fn setBaseline(self: *AsyncBenchmarkSuite, path: []const u8) void {
+        self.baseline_path = path;
+    }
+
+    fn matchesFilter(self: *const AsyncBenchmarkSuite, name: []const u8) bool {
+        if (self.filter == null) return true;
+        return std.mem.indexOf(u8, name, self.filter.?) != null;
+    }
+
+    pub fn saveBaseline(self: *AsyncBenchmarkSuite, results: []const BenchmarkResult, path: []const u8) !void {
+        try writeBaseline(self.allocator, self.io, results, path);
+    }
+
+    pub fn run(self: *AsyncBenchmarkSuite) !void {
+        var stdout_buf: [4096]u8 = undefined;
+        var stdout_writer = Io.File.stdout().writerStreaming(self.io, &stdout_buf);
+        const stdout = &stdout_writer.interface;
+        const formatter = Formatter{};
+
+        try formatter.printHeader(stdout);
+
+        var results = std.ArrayList(BenchmarkResult).empty;
+        defer {
+            for (results.items) |*result| {
+                result.deinit();
+            }
+            results.deinit(self.allocator);
+        }
+
+        for (self.benchmarks.items) |*benchmark| {
+            if (!self.matchesFilter(benchmark.name)) {
+                continue;
+            }
+
+            try formatter.printBenchmarkStart(stdout, benchmark.name);
+            try stdout.flush();
+            const result = try benchmark.run(self.allocator, self.io);
+            try results.append(self.allocator, result);
+            try formatter.printResult(stdout, &result);
+        }
+
+        if (results.items.len > 0) {
+            try formatter.printSummary(stdout, results.items);
+
+            if (self.baseline_path) |path| {
+                try self.saveBaseline(results.items, path);
+                try stdout.print("\n{s}Baseline saved to: {s}{s}\n", .{ Formatter.DIM, path, Formatter.RESET });
+            }
+        }
+        try stdout.flush();
+    }
+};
+
+// ============================================================================
+// Unit Tests
+// ============================================================================
+
+test "Stats.mean - basic calculation" {
+    const samples = [_]u64{ 10, 20, 30, 40, 50 };
+    const result = Stats.mean(&samples);
+    try std.testing.expectApproxEqRel(30.0, result, 0.001);
+}
+
+test "Stats.mean - single value" {
+    const samples = [_]u64{42};
+    const result = Stats.mean(&samples);
+    try std.testing.expectApproxEqRel(42.0, result, 0.001);
+}
+
+test "Stats.mean - empty array" {
+    const samples = [_]u64{};
+    const result = Stats.mean(&samples);
+    try std.testing.expectApproxEqRel(0.0, result, 0.001);
+}
+
+test "Stats.mean - large values" {
+    const samples = [_]u64{ 1_000_000, 2_000_000, 3_000_000 };
+    const result = Stats.mean(&samples);
+    try std.testing.expectApproxEqRel(2_000_000.0, result, 0.001);
+}
+
+test "Stats.stddev - basic calculation" {
+    const samples = [_]u64{ 2, 4, 4, 4, 5, 5, 7, 9 };
+    const mean_val = Stats.mean(&samples);
+    const result = Stats.stddev(&samples, mean_val);
+    // Expected stddev ≈ 2.138
+    try std.testing.expect(result > 2.0 and result < 2.2);
+}
+
+test "Stats.stddev - identical values" {
+    const samples = [_]u64{ 100, 100, 100, 100 };
+    const mean_val = Stats.mean(&samples);
+    const result = Stats.stddev(&samples, mean_val);
+    try std.testing.expectApproxEqRel(0.0, result, 0.001);
+}
+
+test "Stats.stddev - two values" {
+    const samples = [_]u64{ 10, 20 };
+    const mean_val = Stats.mean(&samples);
+    const result = Stats.stddev(&samples, mean_val);
+    // stddev = sqrt((25 + 25) / 1) = sqrt(50) ≈ 7.071
+    try std.testing.expect(result > 7.0 and result < 7.1);
+}
+
+test "Stats.stddev - single value" {
+    const samples = [_]u64{42};
+    const mean_val = Stats.mean(&samples);
+    const result = Stats.stddev(&samples, mean_val);
+    try std.testing.expectApproxEqRel(0.0, result, 0.001);
+}
+
+test "Stats.percentile - median (P50)" {
+    var samples = [_]u64{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    const result = Stats.percentile(&samples, 0.50);
+    try std.testing.expectEqual(@as(u64, 5), result);
+}
+
+test "Stats.percentile - P75" {
+    var samples = [_]u64{ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+    const result = Stats.percentile(&samples, 0.75);
+    try std.testing.expect(result >= 70 and result <= 80);
+}
+
+test "Stats.percentile - P99" {
+    var samples: [100]u64 = @splat(0);
+    for (&samples, 0..) |*s, i| {
+        s.* = i + 1;
+    }
+    const result = Stats.percentile(&samples, 0.99);
+    try std.testing.expect(result >= 99 and result <= 100);
+}
+
+test "Stats.percentile - single value" {
+    var samples = [_]u64{42};
+    const result = Stats.percentile(&samples, 0.75);
+    try std.testing.expectEqual(@as(u64, 42), result);
+}
+
+test "Stats.percentile - empty array" {
+    var samples = [_]u64{};
+    const result = Stats.percentile(&samples, 0.50);
+    try std.testing.expectEqual(@as(u64, 0), result);
+}
+
+test "Stats.min - basic" {
+    const samples = [_]u64{ 50, 30, 70, 10, 90 };
+    const result = Stats.min(&samples);
+    try std.testing.expectEqual(@as(u64, 10), result);
+}
+
+test "Stats.min - single value" {
+    const samples = [_]u64{42};
+    const result = Stats.min(&samples);
+    try std.testing.expectEqual(@as(u64, 42), result);
+}
+
+test "Stats.min - all same values" {
+    const samples = [_]u64{ 100, 100, 100 };
+    const result = Stats.min(&samples);
+    try std.testing.expectEqual(@as(u64, 100), result);
+}
+
+test "Stats.min - empty array" {
+    const samples = [_]u64{};
+    const result = Stats.min(&samples);
+    try std.testing.expectEqual(@as(u64, 0), result);
+}
+
+test "Stats.max - basic" {
+    const samples = [_]u64{ 50, 30, 70, 10, 90 };
+    const result = Stats.max(&samples);
+    try std.testing.expectEqual(@as(u64, 90), result);
+}
+
+test "Stats.max - single value" {
+    const samples = [_]u64{42};
+    const result = Stats.max(&samples);
+    try std.testing.expectEqual(@as(u64, 42), result);
+}
+
+test "Stats.max - all same values" {
+    const samples = [_]u64{ 100, 100, 100 };
+    const result = Stats.max(&samples);
+    try std.testing.expectEqual(@as(u64, 100), result);
+}
+
+test "Stats.max - empty array" {
+    const samples = [_]u64{};
+    const result = Stats.max(&samples);
+    try std.testing.expectEqual(@as(u64, 0), result);
+}
+
+test "BenchmarkOptions - default values" {
+    const opts = BenchmarkOptions{};
+    try std.testing.expectEqual(@as(u32, 5), opts.warmup_iterations);
+    try std.testing.expectEqual(@as(u32, 10), opts.min_iterations);
+    try std.testing.expectEqual(@as(u32, 10_000), opts.max_iterations);
+    try std.testing.expectEqual(@as(u64, 1_000_000_000), opts.min_time_ns);
+}
+
+test "BenchmarkOptions - custom values" {
+    const opts = BenchmarkOptions{
+        .warmup_iterations = 10,
+        .min_iterations = 100,
+        .max_iterations = 1000,
+        .min_time_ns = 500_000_000,
+    };
+    try std.testing.expectEqual(@as(u32, 10), opts.warmup_iterations);
+    try std.testing.expectEqual(@as(u32, 100), opts.min_iterations);
+    try std.testing.expectEqual(@as(u32, 1000), opts.max_iterations);
+    try std.testing.expectEqual(@as(u64, 500_000_000), opts.min_time_ns);
+}
+
+test "Benchmark - init and basic properties" {
+    const TestFn = struct {
+        fn dummyBench() void {}
+    };
+
+    const benchmark = Benchmark.init("Test Benchmark", TestFn.dummyBench);
+    try std.testing.expectEqualStrings("Test Benchmark", benchmark.name);
+    try std.testing.expectEqual(@as(u32, 5), benchmark.opts.warmup_iterations);
+}
+
+test "Benchmark - withOptions" {
+    const TestFn = struct {
+        fn dummyBench() void {}
+    };
+
+    const opts = BenchmarkOptions{
+        .warmup_iterations = 20,
+        .min_iterations = 50,
+    };
+    const benchmark = Benchmark.withOptions("Test", TestFn.dummyBench, opts);
+    try std.testing.expectEqual(@as(u32, 20), benchmark.opts.warmup_iterations);
+    try std.testing.expectEqual(@as(u32, 50), benchmark.opts.min_iterations);
+}
+
+test "BenchmarkResult - deinit" {
+    const allocator = std.testing.allocator;
+
+    var samples = std.ArrayList(u64).empty;
+    try samples.append(allocator, 100);
+    try samples.append(allocator, 200);
+
+    var result = BenchmarkResult{
+        .name = "Test",
+        .samples = samples,
+        .allocator = allocator,
+        .mean = 150.0,
+        .stddev = 50.0,
+        .min = 100,
+        .max = 200,
+        .p50 = 150,
+        .p75 = 175,
+        .p99 = 199,
+        .ops_per_sec = 6_666_666.67,
+        .iterations = 2,
+    };
+
+    result.deinit();
+    // If we get here without leaking, the test passes
+}
+
+test "clock" {
+    _ = clock;
+}
+
+test "Formatter - color constants" {
+    try std.testing.expectEqualStrings("\x1b[0m", Formatter.RESET);
+    try std.testing.expectEqualStrings("\x1b[1m", Formatter.BOLD);
+    try std.testing.expectEqualStrings("\x1b[2m", Formatter.DIM);
+    try std.testing.expectEqualStrings("\x1b[36m", Formatter.CYAN);
+    try std.testing.expectEqualStrings("\x1b[32m", Formatter.GREEN);
+    try std.testing.expectEqualStrings("\x1b[33m", Formatter.YELLOW);
+    try std.testing.expectEqualStrings("\x1b[34m", Formatter.BLUE);
+    try std.testing.expectEqualStrings("\x1b[35m", Formatter.MAGENTA);
+}

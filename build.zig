@@ -84,6 +84,27 @@ pub fn build(b: *std.Build) void {
     const fuzz_seed = b.option(u64, "fuzz-seed", "Deterministic fuzz seed") orelse 0x5eed_5eed;
     run_fuzz.addArgs(&.{ b.fmt("{d}", .{fuzz_iterations}), b.fmt("{d}", .{fuzz_seed}) });
     b.step("fuzz", "Run deterministic fuzz cases").dependOn(&run_fuzz.step);
+
+    // Benchmarks with zig-bench: `zig build bench -- zig-out/bench.json`. The dependency is lazy,
+    // so it is only fetched when this step runs.
+    const bench_step = b.step("bench", "Run benchmarks and write a JSON result file");
+    if (b.lazyDependency("bench", .{ .target = target, .optimize = .fast })) |bench_dep| {
+        const bench_exe = b.addExecutable(.{
+            .name = "bench",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("bench/main.zig"),
+                .target = target,
+                .optimize = .fast,
+                .imports = &.{
+                    .{ .name = "starter", .module = lib_mod },
+                    .{ .name = "bench", .module = bench_dep.module("bench") },
+                },
+            }),
+        });
+        const run_bench = b.addRunArtifact(bench_exe);
+        run_bench.addPassthruArgs();
+        bench_step.dependOn(&run_bench.step);
+    }
 }
 
 fn capiModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.lang.Optimize, lib_mod: *std.Build.Module) *std.Build.Module {
