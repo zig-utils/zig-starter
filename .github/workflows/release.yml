@@ -20,7 +20,7 @@ jobs:
       - name: Setup Pantry
         uses: pantry-pm/pantry/packages/action@fe21b9517e2da3f63c53069845f0b31965bc92d8
         with:
-          version: 0.11.204
+          version: 0.11.212
 
       - name: Validate the tag against package.json
         run: test "v$(bun -e "console.log((await Bun.file('package.json').json()).version)")" = "${GITHUB_REF_NAME}"
@@ -54,7 +54,7 @@ jobs:
       - name: Create the GitHub release
         uses: pantry-pm/pantry/packages/action@fe21b9517e2da3f63c53069845f0b31965bc92d8
         with:
-          version: 0.11.204
+          version: 0.11.212
           install: false
           release: true
           release-tag: ${{ github.ref_name }}
